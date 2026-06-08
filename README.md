@@ -2,7 +2,8 @@
 
 Real-time hardware telemetry dashboard powered by [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor). Zero dependencies, single HTML file, dark theme, auto-discovery.
 
-![screenshot](screenshot.png)
+<img width="2417" height="1152" alt="image" src="https://github.com/user-attachments/assets/291b4b7a-cc1b-4dc1-b4e0-adb86db118cc" />
+
 
 ## Features
 
