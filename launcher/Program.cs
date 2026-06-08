@@ -118,7 +118,7 @@ static void ShowError(string message)
     ProcessStartInfo startInfo = new()
     {
         FileName = "powershell",
-        Arguments = $"-NoProfile -Command \"Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('{EscapeForPowerShell(message)}', 'LibreHW Dashboard')\"",
+        Arguments = $"-NoProfile -Command \"Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('{EscapeForPowerShell(message)}', 'PC Monitor')\"",
         CreateNoWindow = true,
         UseShellExecute = false
     };

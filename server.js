@@ -205,7 +205,7 @@ http.createServer((request, response) => {
 
   serveFile(response, decodeURIComponent(url.pathname));
 }).listen(dashboardPort, '127.0.0.1', () => {
-  console.log(`LibreHW dashboard: http://127.0.0.1:${dashboardPort}/`);
+  console.log(`PC Monitor: http://127.0.0.1:${dashboardPort}/`);
   console.log(configuredUpstream
     ? `Telemetry source: ${configuredUpstream}`
     : `Telemetry discovery enabled on port ${defaultTelemetryPort}`);

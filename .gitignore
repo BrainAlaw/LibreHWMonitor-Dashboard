@@ -6,3 +6,7 @@ node_modules/
 *.vs/
 .DS_Store
 Thumbs.db
+logs/
+tools/nssm.exe
+tools/nssm-*/
+
