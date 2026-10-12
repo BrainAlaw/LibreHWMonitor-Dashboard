@@ -1,0 +1,152 @@
+import { clamp } from './format';
+import type { Model } from './model';
+import type { Level, Risk, Sensor } from './types';
+
+export function colorForPercent(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return 'var(--muted-2)';
+  if (value >= 90) return 'var(--red)';
+  if (value >= 75) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
+export function tempColor(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return 'var(--muted-2)';
+  if (value >= 85) return 'var(--red)';
+  if (value >= 70) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
+export function isPercentLike(sensor: Sensor): boolean {
+  return /%$/.test(sensor.valueText.trim()) || ['Load', 'Control', 'Level'].includes(sensor.type);
+}
+
+export function isInvalidCpuTelemetry(sensor: Sensor | undefined): boolean {
+  if (!sensor || sensor.category !== 'cpu') return false;
+  if (sensor.type === 'Temperature' && sensor.number === 0) return true;
+  if (sensor.type === 'Power' && sensor.number === 0) return true;
+  if ((sensor.type === 'Clock' || sensor.type === 'Factor') && sensor.number === null) return true;
+  return false;
+}
+
+export function isStorageTemperatureThreshold(sensor: Sensor | undefined): boolean {
+  return sensor?.category === 'storage' &&
+    sensor.type === 'Temperature' &&
+    /warning temperature|critical temperature/i.test(sensor.text);
+}
+
+export function isLiveTemperature(sensor: Sensor | undefined): boolean {
+  return sensor?.type === 'Temperature' && !isStorageTemperatureThreshold(sensor);
+}
+
+function cpuTemperatureRank(sensor: Sensor): number {
+  const text = sensor.text.toLowerCase();
+  if (text.includes('tctl') || text.includes('tdie')) return 0;
+  if (text.includes('package')) return 1;
+  if (text.includes('core')) return 2;
+  return 3;
+}
+
+export function bestCpuTemperature(model: Model): Sensor | undefined {
+  const preferred = model.byText('Core (Tctl/Tdie)', 'cpu', 'Temperature');
+  if (preferred && (preferred.number ?? 0) > 0) return preferred;
+
+  return model.sensors
+    .filter(s => s.category === 'cpu' && isLiveTemperature(s) && (s.number ?? 0) > 0)
+    .sort((a, b) => cpuTemperatureRank(a) - cpuTemperatureRank(b) || (b.number ?? 0) - (a.number ?? 0))[0];
+}
+
+/** Measured package power, or an estimate derived from CPU load when the sensor reads zero. */
+export function bestCpuPackagePower(model: Model): Sensor | undefined {
+  const measured = model.byText('Package', 'cpu', 'Power');
+  if (measured && (measured.number ?? 0) > 0) return measured;
+
+  const cpuLoad = model.byText('CPU Total', 'cpu', 'Load');
+  if (!cpuLoad || cpuLoad.number === null) return measured;
+
+  const estimate = 35 + (clamp(cpuLoad.number, 0, 100) / 100) * 80;
+  const base = measured ?? cpuLoad;
+  return {
+    ...base,
+    text: 'Package Estimate',
+    displayName: 'Power: Package Estimate',
+    valueText: `~${estimate.toFixed(0)} W`,
+    number: estimate
+  };
+}
+
+const NORMAL: Risk = { score: 100, level: 'ok', reason: 'Normal' };
+
+export function scoreSensor(sensor: Sensor): Risk {
+  const n = sensor.number;
+  if (isInvalidCpuTelemetry(sensor)) return { score: 65, level: 'warn', reason: 'CPU telemetry unavailable' };
+  if (n === null) return { score: 100, level: 'ok', reason: 'Not numeric' };
+  if (/threshold/i.test(sensor.text) || isStorageTemperatureThreshold(sensor)) {
+    return { score: 100, level: 'ok', reason: 'Reference threshold' };
+  }
+
+  if (sensor.type === 'Temperature') {
+    const hotSpot = sensor.text.includes('Hot Spot');
+    const storage = sensor.category === 'storage';
+    const critical = storage ? 70 : hotSpot ? 95 : 90;
+    const warning = storage ? 60 : hotSpot ? 83 : 78;
+    if (n >= critical) return { score: 20, level: 'critical', reason: 'Critical temperature' };
+    if (n >= warning) return { score: 60, level: 'warn', reason: 'High temperature' };
+  }
+
+  if (sensor.type === 'Load' && /used space/i.test(sensor.text)) {
+    if (n >= 95) return { score: 15, level: 'critical', reason: 'Storage almost full' };
+    if (n >= 85) return { score: 60, level: 'warn', reason: 'Storage filling up' };
+  }
+
+  if (sensor.type === 'Load' && n >= 98 && !/core #/i.test(sensor.text)) {
+    return { score: 70, level: 'warn', reason: 'High utilization' };
+  }
+
+  if (sensor.type === 'Level' && /percentage used/i.test(sensor.text)) {
+    if (n >= 80) return { score: 25, level: 'critical', reason: 'Storage endurance consumed' };
+    if (n >= 50) return { score: 60, level: 'warn', reason: 'Storage endurance aging' };
+  }
+
+  if (sensor.type === 'Level' && /remaining life|available spare/i.test(sensor.text)) {
+    if (n <= 10) return { score: 25, level: 'critical', reason: 'Storage endurance low' };
+    if (n <= 30) return { score: 60, level: 'warn', reason: 'Storage endurance reduced' };
+  }
+
+  return NORMAL;
+}
+
+export function systemLevel(model: Model): Level {
+  const watched = model.sensors.filter(s =>
+    isLiveTemperature(s) ||
+    (s.category === 'cpu' && s.type === 'Power' && s.text === 'Package') ||
+    (s.category === 'cpu' && s.type === 'Clock' && s.text === 'Core #1') ||
+    (s.type === 'Load' && (/used space/i.test(s.text) || (s.number ?? 0) >= 90)) ||
+    (s.type === 'Level' && /remaining life|available spare|percentage used/i.test(s.text)));
+  const levels = watched.map(s => scoreSensor(s).level);
+  if (levels.includes('critical')) return 'critical';
+  return levels.includes('warn') ? 'warn' : 'ok';
+}
+
+export function chooseStorageTemperature(sensors: Sensor[]): Sensor | undefined {
+  const rank = (sensor: Sensor): number => {
+    const text = sensor.text.toLowerCase();
+    if (text.includes('composite')) return 0;
+    if (text.includes('temperature #1')) return 1;
+    if (text.includes('temperature #2')) return 2;
+    if (text.includes('warning')) return 3;
+    if (text.includes('critical')) return 4;
+    return 5;
+  };
+  return sensors.filter(isLiveTemperature).sort((a, b) => rank(a) - rank(b))[0];
+}
+
+export function hardwareKind(sensor: Sensor): string {
+  const id = sensor.id;
+  if (id.startsWith('/nvme/')) return 'NVMe';
+  if (id.startsWith('/ssd/') || id.startsWith('/ahci/')) return 'SSD';
+  if (id.startsWith('/hdd/')) return 'HDD';
+  if (id.startsWith('/nic/')) return 'NIC';
+  if (id.startsWith('/gpu-')) return 'GPU';
+  if (id.includes('cpu')) return 'CPU';
+  return sensor.category;
+}

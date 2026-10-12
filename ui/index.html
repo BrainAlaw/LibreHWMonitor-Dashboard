@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PC Monitor</title>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+      <div class="brand">
+        <h1 id="hostName">waiting for telemetry</h1>
+      </div>
+
+      <div class="status-box" id="healthBox" data-state="unknown">
+        <div id="healthText">Connecting...</div>
+        <div class="path" id="healthDetail"></div>
+      </div>
+
+      <details class="settings-box" id="settingsBox">
+        <summary>Settings</summary>
+        <div class="field"><label for="setPort">Port (restart)</label><input id="setPort" type="number" min="1" max="65535" step="1"></div>
+        <div class="field"><label for="setSampling">Sampling</label>
+          <select id="setSampling"><option value="500">0.5 s</option><option value="1000">1 s</option><option value="2000">2 s</option><option value="5000">5 s</option></select>
+        </div>
+        <label class="check"><input id="setAutostart" type="checkbox"> Start with Windows</label>
+        <label class="check"><input id="setMinimized" type="checkbox"> Start minimized</label>
+        <label class="check"><input id="setCloseToTray" type="checkbox"> Close to tray</label>
+        <button class="btn" id="saveSettings">Save</button>
+        <div class="path" id="settingsMsg"></div>
+      </details>
+    </div>
+  </aside>
+  <main class="app">
+
+    <section class="content">
+      <section class="layout" data-section="overview">
+        <div class="panel span-12">
+          <div class="panel-header">
+            <h2 class="panel-title">Major Thermals</h2>
+            <span class="badge" id="systemRisk">Calculating</span>
+          </div>
+          <div class="panel-body">
+            <div class="device-grid" id="thermalSummary"></div>
+          </div>
+        </div>
+
+        <div class="panel span-8">
+          <div class="panel-header">
+            <h2 class="panel-title">Major Loads</h2>
+            <span class="badge">cpu, gpu, memory, storage</span>
+          </div>
+          <div class="panel-body">
+            <div class="device-grid" id="loadSummary"></div>
+          </div>
+        </div>
+
+        <div class="panel span-4">
+          <div class="panel-header">
+            <h2 class="panel-title">Network</h2>
+            <span class="badge">download and upload</span>
+          </div>
+          <div class="panel-body">
+            <div id="networkSummary"></div>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="layout" data-section="compute">
+        <div class="panel span-4">
+          <div class="panel-header">
+            <h2 class="panel-title">CPU</h2>
+            <span class="badge" id="cpuName">CPU</span>
+          </div>
+          <div class="panel-body">
+            <div id="cpuSummary"></div>
+            <div class="core-grid" id="coreGrid"></div>
+          </div>
+        </div>
+
+        <div class="panel span-4">
+          <div class="panel-header">
+            <h2 class="panel-title">Power and Cooling</h2>
+            <span class="badge" id="powerFanCount">loose model</span>
+          </div>
+          <div class="panel-body">
+            <div class="signal-grid compact" id="powerSummary"></div>
+            <div class="cooling-grid" id="powerCoolingGrid"></div>
+          </div>
+        </div>
+
+        <div class="panel span-4 adaptive-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">GPU</h2>
+            <span class="badge" id="gpuName">GPU</span>
+          </div>
+          <div class="panel-body is-flex">
+            <div class="device-grid gpu-grid" id="gpuCards"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout" data-section="raw">
+        <div class="panel span-12">
+          <div class="panel-header">
+            <h2 class="panel-title">Raw Sensor Matrix</h2>
+            <span class="badge" id="rawCount">0 shown</span>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Device</th>
+                    <th>Sensor</th>
+                    <th>Type</th>
+                    <th>Min</th>
+                    <th>Value</th>
+                    <th>Max</th>
+                    <th>Health</th>
+                  </tr>
+                </thead>
+                <tbody id="rawTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

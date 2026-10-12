@@ -1,9 +1,9 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-Compares sensor coverage and values between two LibreHardwareMonitor-compatible /data.json endpoints.
+Compares sensor coverage and values between the official LibreHardwareMonitor web server and PC Monitor.
 .EXAMPLE
-.\compare-telemetry.ps1 -Reference http://127.0.0.1:8085/data.json -Candidate http://127.0.0.1:8096/data.json
+.\compare-telemetry.ps1 -Reference http://127.0.0.1:8085/data.json -Candidate http://127.0.0.1:8096/api/snapshot
 #>
 [CmdletBinding()]
 param(
@@ -14,19 +14,32 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Get-SensorMap {
+# Sensor types whose value is static enough to compare between two polls.
+$comparableTypes = 'Temperature', 'Voltage', 'Fan', 'Data', 'SmallData'
+
+function Get-ReferenceMap {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Url)
 
-    $root = Invoke-RestMethod -Uri $Url -TimeoutSec 15
     $map = @{}
     function Walk($node) {
         if ($node.SensorId) {
-            $map[$node.SensorId] = $node
+            $map[$node.SensorId] = [PSCustomObject]@{ Type = $node.Type; Value = ConvertTo-Number $node.Value; Text = $node.Value }
         }
         foreach ($child in @($node.Children)) { Walk $child }
     }
-    Walk $root
+    Walk (Invoke-RestMethod -Uri $Url -TimeoutSec 15)
+    return $map
+}
+
+function Get-CandidateMap {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Url)
+
+    $map = @{}
+    foreach ($sensor in (Invoke-RestMethod -Uri $Url -TimeoutSec 15).sensors) {
+        $map[$sensor.id] = [PSCustomObject]@{ Type = $sensor.type; Value = $sensor.value; Text = "$($sensor.value) $($sensor.unit)" }
+    }
     return $map
 }
 
@@ -38,21 +51,19 @@ function ConvertTo-Number([string]$Text) {
 }
 
 try {
-    $ref = Get-SensorMap -Url $Reference
-    $cand = Get-SensorMap -Url $Candidate
+    $ref = Get-ReferenceMap -Url $Reference
+    $cand = Get-CandidateMap -Url $Candidate
 
     $missing = $ref.Keys | Where-Object { -not $cand.ContainsKey($_) } | Sort-Object
     $extra = $cand.Keys | Where-Object { -not $ref.ContainsKey($_) } | Sort-Object
 
     $divergent = foreach ($id in ($ref.Keys | Where-Object { $cand.ContainsKey($_) })) {
-        $a = ConvertTo-Number $ref[$id].Value
-        $b = ConvertTo-Number $cand[$id].Value
-        if ($null -eq $a -or $null -eq $b) { continue }
-        $base = [Math]::Max([Math]::Abs($a), 1.0)
-        $delta = [Math]::Abs($a - $b) / $base * 100
-        # Load, throughput and clocks fluctuate between two polls; only flag static-ish sensors.
-        if ($delta -gt $TolerancePercent -and $ref[$id].Type -in 'Temperature', 'Voltage', 'Fan', 'Data', 'SmallData') {
-            [PSCustomObject]@{ SensorId = $id; Reference = $ref[$id].Value; Candidate = $cand[$id].Value; DeltaPercent = [Math]::Round($delta, 1) }
+        $a = $ref[$id].Value
+        $b = $cand[$id].Value
+        if ($null -eq $a -or $null -eq $b -or $ref[$id].Type -notin $comparableTypes) { continue }
+        $delta = [Math]::Abs($a - $b) / [Math]::Max([Math]::Abs($a), 1.0) * 100
+        if ($delta -gt $TolerancePercent) {
+            [PSCustomObject]@{ SensorId = $id; Reference = $ref[$id].Text; Candidate = $cand[$id].Text; DeltaPercent = [Math]::Round($delta, 1) }
         }
     }
 
@@ -65,7 +76,7 @@ try {
         Divergent        = @($divergent).Count
     } | Format-List
 
-    if ($missing) { Write-Host "`nMissing in candidate:" -ForegroundColor Yellow; $missing | ForEach-Object { "  $_  ($($ref[$_].Value))" } }
+    if ($missing) { Write-Host "`nMissing in candidate:" -ForegroundColor Yellow; $missing | ForEach-Object { "  $_  ($($ref[$_].Text))" } }
     if ($extra) { Write-Host "`nExtra in candidate:" -ForegroundColor Cyan; $extra | ForEach-Object { "  $_" } }
     if ($divergent) { Write-Host "`nDivergent values:" -ForegroundColor Red; $divergent | Format-Table -AutoSize }
 }

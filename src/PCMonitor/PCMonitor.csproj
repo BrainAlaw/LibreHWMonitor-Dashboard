@@ -21,12 +21,29 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebugType>none</DebugType>
     <AllowedReferenceRelatedFileExtensions>.pdb</AllowedReferenceRelatedFileExtensions>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+    <UiDirectory>$(MSBuildThisFileDirectory)..\..\ui\</UiDirectory>
   </PropertyGroup>
+
   <ItemGroup>
-    <EmbeddedResource Include="..\index.html" LogicalName="index.html" />
-  </ItemGroup>
-  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.7-pre705" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.0" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
+    <InternalsVisibleTo Include="PCMonitor.Tests" />
   </ItemGroup>
+
+  <!-- The dashboard is built by Vite into wwwroot and embedded in the exe. -->
+  <ItemGroup>
+    <UiSource Include="$(UiDirectory)src\**;$(UiDirectory)index.html;$(UiDirectory)package.json;$(UiDirectory)package-lock.json;$(UiDirectory)tsconfig.json;$(UiDirectory)vite.config.ts" />
+    <EmbeddedResource Include="wwwroot\**" />
+  </ItemGroup>
+
+  <Target Name="BuildUi" BeforeTargets="BeforeBuild" Inputs="@(UiSource)" Outputs="$(MSBuildThisFileDirectory)wwwroot\index.html" Condition="'$(SkipUiBuild)' != 'true'">
+    <Exec Command="npm ci" WorkingDirectory="$(UiDirectory)" Condition="!Exists('$(UiDirectory)node_modules')" />
+    <Exec Command="npm run build" WorkingDirectory="$(UiDirectory)" />
+    <ItemGroup>
+      <EmbeddedResource Include="wwwroot\**" Exclude="@(EmbeddedResource)" />
+    </ItemGroup>
+  </Target>
 </Project>

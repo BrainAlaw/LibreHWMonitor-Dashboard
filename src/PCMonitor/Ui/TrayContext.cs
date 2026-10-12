@@ -7,7 +7,6 @@ namespace PCMonitor.Ui;
 
 internal sealed class TrayContext : ApplicationContext
 {
-    private readonly SettingsStore settings;
     private readonly TelemetryCollector collector;
     private readonly string dashboardUrl;
     private readonly NotifyIcon notifyIcon;
@@ -16,10 +15,9 @@ internal sealed class TrayContext : ApplicationContext
     private readonly ToolStripMenuItem autostartItem = new("Start with Windows") { CheckOnClick = false };
     private bool exiting;
 
-    public TrayContext(string dashboardUrl, SettingsStore settings, TelemetryCollector collector, bool startHidden)
+    public TrayContext(string dashboardUrl, TelemetryCollector collector, SettingsStore settings, bool startHidden)
     {
         this.dashboardUrl = dashboardUrl;
-        this.settings = settings;
         this.collector = collector;
 
         Icon? icon = null;
@@ -99,9 +97,7 @@ internal sealed class TrayContext : ApplicationContext
 
     private void UpdateTooltip()
     {
-        // NotifyIcon.Text is limited to 63 characters.
-        string text = collector.Summary;
-        notifyIcon.Text = text.Length <= 63 ? text : text[..63];
+        notifyIcon.Text = TraySummary.Build(collector.Latest?.Snapshot);
     }
 
     private void ResetTelemetry()

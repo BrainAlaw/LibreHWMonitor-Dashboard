@@ -28,11 +28,12 @@ internal static class Program
         }
 
         Log.Prune();
-        Log.Info($"Starting PC Monitor, elevated={Elevation.IsElevated()}, args=[{string.Join(' ', args)}]");
+        bool elevated = Elevation.IsElevated();
+        Log.Info($"Starting PC Monitor, elevated={elevated}, args=[{string.Join(' ', args)}]");
 
         try
         {
-            return Run(args, showEvent);
+            return Run(args, showEvent, elevated);
         }
         catch (Exception error)
         {
@@ -43,18 +44,22 @@ internal static class Program
         }
     }
 
-    private static int Run(string[] args, EventWaitHandle showEvent)
+    private static int Run(string[] args, EventWaitHandle showEvent, bool elevated)
     {
         SettingsStore settings = new();
         bool startHidden = settings.Current.StartMinimized ||
             args.Contains("--minimized", StringComparer.OrdinalIgnoreCase);
 
-        using TelemetryCollector collector = new(settings);
-        using DashboardServer server = new(settings, collector);
+        using TelemetryCollector collector = new(settings, static s => new LhmHardwareSource(s), elevated);
 
+        DashboardHost host;
         try
         {
-            server.Start();
+            host = DashboardHost.StartAsync(
+                settings,
+                collector,
+                static enable => Task.Run(() => enable ? Autostart.Enable(Environment.ProcessPath ?? string.Empty) : Autostart.Disable()),
+                Autostart.IsEnabled).GetAwaiter().GetResult();
         }
         catch (Exception error)
         {
@@ -64,17 +69,24 @@ internal static class Program
             return 1;
         }
 
-        collector.Start();
-
-        if (!IsWebViewAvailable())
+        try
         {
-            return RunBrowserFallback(server, showEvent);
-        }
+            collector.Start();
 
-        using TrayContext context = new(server.Url, settings, collector, startHidden);
-        RegisterShowSignal(showEvent, context.ShowDashboard);
-        Application.Run(context);
-        return 0;
+            if (!IsWebViewAvailable())
+            {
+                return RunBrowserFallback(host.Url, showEvent);
+            }
+
+            using TrayContext context = new(host.Url, collector, settings, startHidden);
+            RegisterShowSignal(showEvent, context.ShowDashboard);
+            Application.Run(context);
+            return 0;
+        }
+        finally
+        {
+            host.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
     }
 
     private static bool IsWebViewAvailable()
@@ -91,7 +103,7 @@ internal static class Program
     }
 
     // Without the WebView2 runtime the dashboard still works in the default browser.
-    private static int RunBrowserFallback(DashboardServer server, EventWaitHandle showEvent)
+    private static int RunBrowserFallback(string url, EventWaitHandle showEvent)
     {
         DialogResult answer = MessageBox.Show(
             "The Microsoft WebView2 Runtime is not installed, so the native window is unavailable.\n\n" +
@@ -105,7 +117,7 @@ internal static class Program
             return 0;
         }
 
-        void OpenBrowser() => Process.Start(new ProcessStartInfo(server.Url) { UseShellExecute = true });
+        void OpenBrowser() => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         OpenBrowser();
 
         using NotifyIcon tray = new()

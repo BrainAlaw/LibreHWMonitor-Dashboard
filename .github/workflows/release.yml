@@ -21,6 +21,24 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: UI typecheck and tests
+        working-directory: ui
+        shell: bash
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+      - name: .NET tests
+        run: dotnet test tests/PCMonitor.Tests -c Release
+
       - name: Resolve version
         id: version
         shell: pwsh
@@ -29,7 +47,7 @@ jobs:
           "value=$version" >> $env:GITHUB_OUTPUT
 
       - name: Publish self-contained single file
-        run: dotnet publish launcher/LibreHWDashboardLauncher.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -o publish
+        run: dotnet publish src/PCMonitor/PCMonitor.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -o publish
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y

@@ -41,11 +41,11 @@ try {
 
     Assert-That ($null -ne $health) 'health endpoint reachable'
     Assert-That ($health.sensorCount -gt 0) "sensors reported ($($health.sensorCount))"
-    Assert-That ($health.mode -eq 'embedded') 'telemetry mode is embedded'
     if (-not $AllowNonElevated) { Assert-That ([bool]$health.elevated) 'process is elevated' }
 
-    $data = Invoke-WebRequest "$base/data.json" -UseBasicParsing
-    Assert-That ([string]$data.Headers['X-PCMonitor-Telemetry'] -eq 'embedded') 'data.json served from embedded collector'
+    $snapshot = Invoke-RestMethod "$base/api/snapshot"
+    Assert-That (@($snapshot.sensors).Count -gt 0) '/api/snapshot returns sensors'
+    Assert-That (@($snapshot.sensors | Where-Object { $_.type -eq 'Throughput' -and $_.unit -ne 'B/s' }).Count -eq 0) 'throughput sensors are reported in B/s'
     $page = Invoke-WebRequest "$base/" -UseBasicParsing
     Assert-That ($page.Content -match '<title>PC Monitor</title>') 'embedded index.html served'
 
@@ -53,7 +53,7 @@ try {
     Assert-That ($null -eq (Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.ParentProcessId -eq $process.Id })) 'node.exe not spawned'
 
     try {
-        $null = Invoke-WebRequest "$base/data.json" -Headers @{ Host = 'evil.example' } -UseBasicParsing
+        $null = Invoke-WebRequest "$base/api/health" -Headers @{ Host = 'evil.example' } -UseBasicParsing
         Assert-That $false 'foreign Host header rejected'
     } catch { Assert-That ($_.Exception.Response.StatusCode -eq 403) 'foreign Host header rejected' }
 }

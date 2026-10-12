@@ -4,10 +4,10 @@ Standalone Windows hardware monitoring dashboard. One self-contained executable:
 
 ```text
 PCMonitor.exe
-  ├─ LibreHardwareMonitorLib   background sampler (one polling loop, immutable snapshot)
-  ├─ loopback HTTP server      127.0.0.1:8096  /  /data.json  /api/health  /api/settings
-  ├─ embedded dashboard UI     index.html compiled into the exe
-  └─ WebView2 window + tray    close-to-tray, fullscreen (F11), autostart toggle
+  ├─ LibreHardwareMonitorLib   one background polling loop -> immutable snapshots
+  ├─ Kestrel (127.0.0.1)       /api/snapshot  /api/stream (SSE)  /api/health  /api/settings
+  ├─ embedded dashboard        Vite + TypeScript build compiled into the exe
+  └─ WebView2 window + tray    close-to-tray, F11 fullscreen, autostart toggle
 ```
 
 ## Install
@@ -23,9 +23,8 @@ Requires the WebView2 Runtime (included in Windows 11 and current Edge). If it i
 
 - Closing the window hides it to the tray (configurable). Double-click the tray icon to reopen.
 - Starting a second instance brings the running one to the front.
-- Tray menu: Open, Fullscreen, Reload, Reset telemetry, Start with Windows, Open in browser, Open logs folder, Exit.
-- The tray tooltip shows live CPU load and temperature.
-- Sidebar shows telemetry health (sensor count, elevation, errors) and a Settings panel.
+- Tray menu: Open, Fullscreen, Reload, Reset telemetry, Start with Windows, Open in browser, Open logs folder, Exit. The tooltip shows live CPU load and temperature.
+- The sidebar shows telemetry health (sensor count, elevation, errors) and a Settings panel. Data is pushed live over SSE.
 
 ## Settings
 
@@ -34,51 +33,54 @@ Stored in `%APPDATA%\PCMonitor\settings.json`, editable in the dashboard or by h
 | Key | Default | Description |
 |---|---:|---|
 | `Port` | `8096` | Dashboard port. If busy, the next free port (up to +19) is used. Restart to apply. |
-| `SamplingMs` | `1000` | Hardware polling interval (250-60000). |
+| `SamplingMs` | `1000` | Hardware polling interval (250-60000), applied live. |
 | `StartMinimized` | `false` | Start hidden in the tray. |
 | `CloseToTray` | `true` | Close button hides instead of exiting. |
-| `ExternalSource` | `null` | Proxy an external LibreHardwareMonitor `/data.json` instead of embedded telemetry. |
-| `EnableCpu/Gpu/Memory/Motherboard/Storage/Network/Battery/Psu/Controller` | `true` | Toggle hardware groups (restart collector via tray: Reset telemetry). |
+| `EnableCpu/Gpu/Memory/Motherboard/Storage/Network/Battery/Psu/Controller` | `true` | Toggle hardware groups (tray: Reset telemetry to apply). |
 
-Environment overrides (this run only): `PORT`, `PCMONITOR_TELEMETRY_SOURCE` (alias `LIBREHW_SOURCE`).
+The `PORT` environment variable overrides the port for that run only.
 
 **Start with Windows** creates a Scheduled Task (`PCMonitor`, at logon, highest privileges) so the app starts elevated without a UAC prompt.
 
-Logs: `%APPDATA%\PCMonitor\logs\` (7 days). UI override for development: place an `index.html` in `%APPDATA%\PCMonitor\ui\`.
+Logs: `%APPDATA%\PCMonitor\logs\` (7 days). UI override for development: put a built dashboard (`index.html` + `assets/`) in `%APPDATA%\PCMonitor\ui\`.
 
 ## HTTP API
 
 | Endpoint | Description |
 |---|---|
-| `GET /data.json` | LibreHardwareMonitor-compatible sensor tree. Adds `ValueNum`, `MinNum`, `MaxNum`, `Unit` numeric fields. |
+| `GET /api/snapshot` | Latest snapshot: `host`, `timestamp`, `hardware[]`, `sensors[]` (`id`, `device`, `path`, `group`, `name`, `type`, `value`, `min`, `max`, `unit`, `decimals`). Throughput is in bytes per second. |
+| `GET /api/stream` | Server-sent events: `snapshot` on every sample, `health` on change, `: ping` heartbeats. |
 | `GET /api/health` | `status` (`starting`/`ok`/`degraded`/`error`), `elevated`, `sensorCount`, `hardwareCount`, `lastError`, `lastUpdate`. |
-| `GET/PUT /api/settings` | Read or update port, sampling, startMinimized, closeToTray, autostart (same-origin JSON only). |
+| `GET/PUT /api/settings` | Read or update port, samplingMs, startMinimized, closeToTray, autostart (same-origin JSON only). |
 
 The server binds to loopback only and rejects requests whose `Host` is not `127.0.0.1:<port>` / `localhost:<port>`.
 
-## Build
+## Development
 
-Requires the .NET 10 SDK.
+Requires the .NET 10 SDK and Node 22+.
 
 ```powershell
-dotnet publish launcher\LibreHWDashboardLauncher.csproj -c Release -o publish
+cd ui; npm ci                  # once
+npm run dev                    # Vite dev server with /api proxied to a running PCMonitor on :8096
+npm test                       # UI unit tests (vitest)
+cd ..
+dotnet test tests\PCMonitor.Tests          # backend unit + integration tests
+dotnet publish src\PCMonitor -c Release -o publish   # builds the UI, embeds it, writes publish\PCMonitor.exe
 ```
 
-Output: `publish\PCMonitor.exe` (self-contained, single file, win-x64). Installer: `iscc /DAppVersion=2.0.0 installer\PCMonitor.iss`.
+Layout: `src/PCMonitor` (app), `ui` (dashboard source), `tests/PCMonitor.Tests`, `installer` (Inno Setup), `tools` (PowerShell helpers).
 
-Release: push a `v*` tag; GitHub Actions builds the installer, portable ZIP and `SHA256SUMS.txt`.
+- `tools\smoke-test.ps1 -ExePath publish\PCMonitor.exe` starts the app and checks health, snapshot, embedded UI, no spawned LibreHardwareMonitor/Node, Host-header rejection (`-AllowNonElevated` for non-admin shells).
+- `tools\compare-telemetry.ps1 -Reference http://127.0.0.1:8085/data.json -Candidate http://127.0.0.1:8096/api/snapshot` diffs sensor coverage against the official LibreHardwareMonitor web server.
 
-## Verification tools
-
-- `tools\smoke-test.ps1 -ExePath publish\PCMonitor.exe` - starts the app and checks health, embedded telemetry, no spawned LibreHardwareMonitor/Node, Host-header rejection (`-AllowNonElevated` for non-admin shells).
-- `tools\compare-telemetry.ps1 -Reference http://127.0.0.1:8085/data.json -Candidate http://127.0.0.1:8096/data.json` - sensor coverage diff against the official LibreHardwareMonitor web server.
+Installer: `iscc /DAppVersion=2.0.0 installer\PCMonitor.iss`. Release: push a `v*` tag; GitHub Actions runs the tests, builds the installer, portable ZIP and `SHA256SUMS.txt`.
 
 ## Known limitations
 
 - Windows 10/11 x64 only.
-- LibreHardwareMonitor loads a ring-0 driver; some antivirus/HVCI configurations block it, which shows as `degraded`/missing sensors in the health box. See `%APPDATA%\PCMonitor\logs`.
+- LibreHardwareMonitor loads a ring-0 driver; some antivirus/HVCI configurations block it, which shows as `degraded`/missing sensors in the health box. See the logs folder.
 - Uses the pre-release `LibreHardwareMonitorLib 0.9.7-pre705`: SATA drives are identified as `/ahci/N` instead of `/ssd/N`, and a few NVMe-specific `Level` sensors present in 0.9.6 are not reported.
-- First launch after install can take up to ~35 s to open all hardware (one-time native extraction and driver init); later launches take a few seconds.
+- Opening all hardware can take up to ~35 s on the very first launch (native extraction, driver init); later launches take a few seconds. The dashboard shows `Starting...` meanwhile.
 
 ## License
 
