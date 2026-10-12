@@ -1,26 +1,43 @@
-import { el, setText } from './dom';
-import type { Health, HealthStatus } from './types';
+import type { Health, Level } from './types';
 
-const LABEL: Record<HealthStatus, string> = {
-  starting: 'Starting...',
-  ok: 'Live',
-  degraded: 'Limited',
-  error: 'Telemetry error'
-};
+export interface ConnectionIssue {
+  title: string;
+  detail: string;
+  level: Level;
+}
 
-export function showHealth(health: Health): void {
-  const pill = el('statusPill');
-  pill.dataset['state'] = health.status;
-  pill.title = health.lastError ?? '';
-  setText('healthText', LABEL[health.status]);
+let health: Health | null = null;
+let connected = true;
 
-  const detail = [`${health.sensorCount} sensors`];
-  if (!health.elevated) detail.push('not admin');
-  setText('healthDetail', health.status === 'error' && health.lastError ? health.lastError : detail.join(' · '));
+export function showHealth(next: Health): void {
+  health = next;
+  connected = true;
+  notify();
 }
 
 export function showDisconnected(): void {
-  el('statusPill').dataset['state'] = 'error';
-  setText('healthText', 'Disconnected');
-  setText('healthDetail', 'reconnecting...');
+  connected = false;
+  notify();
+}
+
+/** Telemetry problems (lost stream, collector error, missing admin rights), or null when healthy. */
+export function connectionIssue(): ConnectionIssue | null {
+  if (!connected) return { title: 'Dashboard disconnected', detail: 'reconnecting...', level: 'critical' };
+  if (!health || health.status === 'ok' || health.status === 'starting') return null;
+  if (health.status === 'error') return { title: 'Telemetry error', detail: health.lastError ?? 'sensor collection failed', level: 'critical' };
+  return {
+    title: 'Limited telemetry',
+    detail: health.elevated ? 'some sensors are unavailable' : 'not running as administrator - some sensors are missing',
+    level: 'warn'
+  };
+}
+
+const listeners: Array<() => void> = [];
+
+export function onConnectionChange(listener: () => void): void {
+  listeners.push(listener);
+}
+
+function notify(): void {
+  listeners.forEach(listener => listener());
 }

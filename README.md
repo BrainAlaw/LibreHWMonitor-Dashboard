@@ -26,7 +26,7 @@ Requires the WebView2 Runtime (included in Windows 11 and current Edge). If it i
 - Closing the window hides it to the tray (configurable). Double-click the tray icon to reopen.
 - Starting a second instance brings the running one to the front.
 - Tray menu: Open, Fullscreen, Reload, Reset telemetry, Start with Windows, Open in browser, Open logs folder, Exit. The tooltip shows live CPU load and temperature.
-- The top bar shows system risk (hover for the reasons) and telemetry health (sensor count, elevation, errors). The gear opens Settings as a popover; every change is saved automatically and confirmed with a toast. Data is pushed live over SSE.
+- The window is frameless with its own title bar (drag to move, double-click to maximize). The shield button in the top bar opens a status popover listing everything outside its normal range plus telemetry problems (lost connection, missing admin rights); its colour and counter show the worst level. The gear opens Settings as a popover; every change is saved automatically and confirmed with a toast. Data is pushed live over SSE.
 - Settings > Display: show or hide the raw sensor matrix and individual cooling fans. Settings > Power estimate: tune the assumptions behind the wall-power estimate (only CPU and GPU package power are measured). Display and power settings are stored per browser.
 - Fan rotors spin at a speed that follows the RPM reading. The network total counts physical adapters only (VPN tunnels and virtual switches are listed but not summed).
 

@@ -3,6 +3,7 @@ import { el, setHtml } from './dom';
 import { allCoolingSensors, fanKey } from './fans';
 import { h } from './html';
 import type { Model } from './model';
+import { bindPopover } from './popover';
 import { prefs, updatePrefs } from './prefs';
 import { toast } from './toast';
 import type { LanUrl } from './types';
@@ -130,23 +131,7 @@ function renderFanList(model: Model | null): void {
 
 /** Wires the settings popover. `getModel` supplies the latest snapshot for the fan list. */
 export function initSettings(getModel: () => Model | null): { refreshFans(): void } {
-  const button = el('settingsButton');
-  const popover = el('settingsPopover');
-
-  const setOpen = (open: boolean): void => {
-    popover.hidden = !open;
-    button.setAttribute('aria-expanded', String(open));
-    if (open) renderFanList(getModel());
-  };
-
-  button.addEventListener('click', () => setOpen(Boolean(popover.hidden)));
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') setOpen(false);
-  });
-  document.addEventListener('pointerdown', event => {
-    const target = event.target as Node;
-    if (!popover.hidden && !popover.contains(target) && !button.contains(target)) setOpen(false);
-  });
+  bindPopover(el('settingsButton'), el('settingsPopover'), () => renderFanList(getModel()));
 
   el('fanList').addEventListener('change', event => {
     const box = event.target as HTMLInputElement;
@@ -161,5 +146,5 @@ export function initSettings(getModel: () => Model | null): { refreshFans(): voi
   initLocalPrefs();
   void initServerSettings();
 
-  return { refreshFans: () => { if (!popover.hidden) renderFanList(getModel()); } };
+  return { refreshFans: () => { if (!el('settingsPopover').hidden) renderFanList(getModel()); } };
 }

@@ -37,14 +37,17 @@
 
 html, body {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
   background: var(--page);
   color: var(--text);
   font-family: var(--font);
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
+/* The top bar stays put; only .page scrolls. */
 body {
+  display: flex;
+  flex-direction: column;
   min-width: 320px;
   background:
     radial-gradient(1200px 500px at 10% -10%, rgba(85, 167, 255, .07), transparent 60%),
@@ -57,9 +60,16 @@ button, input, select { font: inherit; }
 
 /* ---------- top bar ---------- */
 
+.page {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .topbar {
-  position: sticky;
-  top: 0;
+  flex: none;
+  position: relative;
   z-index: 30;
   display: flex;
   align-items: center;
@@ -108,39 +118,6 @@ button, input, select { font: inherit; }
   align-items: center;
   gap: 10px;
   min-width: 0;
-}
-
-.status-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 4px 12px 4px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--panel);
-  font-size: 12px;
-}
-
-.status-pill .dot {
-  width: 8px;
-  height: 8px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--muted-2);
-}
-
-.status-pill[data-state="ok"] .dot { background: var(--green); animation: pulse 2s ease-out infinite; }
-.status-pill[data-state="degraded"] .dot { background: var(--yellow); animation: pulse-warn 2s ease-out infinite; }
-.status-pill[data-state="error"] .dot { background: var(--red); }
-
-.status-detail {
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .icon-button {
@@ -843,14 +820,11 @@ tbody tr:hover { background: #1e2530; }
 /* ---------- motion ---------- */
 
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(69, 212, 131, .55); } 100% { box-shadow: 0 0 0 8px rgba(69, 212, 131, 0); } }
-@keyframes pulse-warn { 0% { box-shadow: 0 0 0 0 rgba(242, 184, 75, .55); } 100% { box-shadow: 0 0 0 8px rgba(242, 184, 75, 0); } }
 @keyframes pop-in { from { opacity: 0; transform: translateY(-8px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   .fan-rotor { animation-duration: calc(var(--spin, 3s) * 4); }
-  .status-pill .dot { animation: none; }
   .dial, .core, .bar > i { transition: none; }
 }
 
@@ -867,7 +841,6 @@ tbody tr:hover { background: #1e2530; }
 
 @media (max-width: 760px) {
   .content { padding: 10px; }
-  .status-detail { display: none; }
   .signal-grid { grid-template-columns: 1fr; }
   table, thead, tbody, tr, th, td { display: block; width: 100%; }
   thead { display: none; }
@@ -896,9 +869,6 @@ details.settings-section[open] > summary::after { transform: rotate(180deg); }
 
 .toast { pointer-events: auto; cursor: pointer; }
 
-.badge-button { cursor: pointer; background: transparent; transition: background .15s; }
-.badge-button:hover { background: var(--panel-2); }
-.badge-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* ---------- storage volumes ---------- */
 
@@ -954,3 +924,97 @@ details.settings-section[open] > summary::after { transform: rotate(180deg); }
 
 /* The last GPU card (clocks and power) uses the full width so the panel has no empty corner. */
 .device-grid > :nth-child(3):last-child { grid-column: 1 / -1; }
+
+/* ---------- problems button and popover ---------- */
+
+.risk-button { position: relative; --risk: var(--green); }
+.risk-button { color: var(--risk); }
+.risk-button[data-level="warn"] { --risk: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 55%, var(--line)); }
+.risk-button[data-level="critical"] { --risk: var(--red); border-color: color-mix(in srgb, var(--red) 55%, var(--line)); }
+.risk-button[aria-expanded="true"] svg { transform: none; }
+
+.risk-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--risk);
+  color: #0e1014;
+  box-shadow: 0 0 0 2px var(--panel);
+  font: 700 10px/16px var(--mono);
+  text-align: center;
+}
+
+.risk-count:empty { display: none; }
+
+.issues-summary { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+
+.issue {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--yellow);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.issue[data-level="critical"] { border-left-color: var(--red); }
+.issue-title { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.issue-detail { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+
+/* ---------- desktop window chrome ---------- */
+
+.window-controls { display: none; }
+
+:root[data-shell="app"] .topbar { padding-right: 0; user-select: none; }
+:root[data-shell="app"] .topbar-right { align-self: stretch; }
+:root[data-shell="app"] .topbar-right > .icon-button { align-self: center; }
+:root[data-shell="app"] .window-controls { display: flex; margin-left: 6px; }
+
+.window-controls button {
+  width: 46px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.window-controls button:hover { background: var(--panel-2); color: var(--text); }
+.window-controls button.close:hover { background: #c42b1c; color: #fff; }
+
+.window-controls svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.icon-restore { display: none; }
+:root[data-maximized="true"] .icon-restore { display: block; }
+:root[data-maximized="true"] .icon-max { display: none; }
+
+/* ---------- scrollbars ---------- */
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+::-webkit-scrollbar-thumb {
+  background: #2c3340;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  transition: background-color .15s;
+}
+
+::-webkit-scrollbar-thumb:hover { background: #4a5568; background-clip: content-box; }
+::-webkit-scrollbar-thumb:active { background: var(--blue); background-clip: content-box; }

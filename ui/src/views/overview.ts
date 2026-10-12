@@ -1,22 +1,12 @@
 import { areaChart, legend } from '../charts';
 import { cpuThermalTile, signal, thermalTile } from '../components';
-import { el, setHtml, setText } from '../dom';
+import { setHtml } from '../dom';
 import { h } from '../html';
 import type { History } from '../history';
 import type { Model } from '../model';
-import { bestCpuTemperature, chooseStorageTemperature, isLiveTemperature, systemIssues, systemLevel } from '../scoring';
-import { toast } from '../toast';
+import { bestCpuTemperature, chooseStorageTemperature, isLiveTemperature } from '../scoring';
 import type { Sensor } from '../types';
 import { deviceRoot, groupBy } from './util';
-
-const MAX_ISSUE_TOASTS = 6;
-const ISSUE_TOAST_MS = 9000;
-
-const BADGE: Record<string, { label: string; className: string }> = {
-  critical: { label: 'Critical', className: 'badge bad-text' },
-  warn: { label: 'Watch', className: 'badge warn-text' },
-  ok: { label: 'Nominal', className: 'badge ok' }
-};
 
 export function recordLoadHistory(model: Model, history: History): void {
   history.push('cpu', model.byText('CPU Total', 'cpu', 'Load')?.number ?? 0);
@@ -26,7 +16,6 @@ export function recordLoadHistory(model: Model, history: History): void {
 
 export function renderOverview(model: Model, history: History): void {
   renderThermals(model);
-  renderRiskBadge(model);
   renderLoads(model);
   renderLoadHistory(history);
 }
@@ -54,31 +43,6 @@ function renderThermals(model: Model): void {
     ${thermalTile(gpuJunction, 'GPU Memory', gpuJunction?.deviceName)}
     ${drive ? thermalTile(drive.sensor, 'Hottest drive', drive.name) : ''}
   </div>`);
-}
-
-function renderRiskBadge(model: Model): void {
-  const { label, className } = BADGE[systemLevel(model)] ?? BADGE['ok']!;
-  setText('systemRisk', label);
-  const badge = el('systemRisk');
-  badge.className = className;
-  badge.title = 'Click for details';
-}
-
-/** Explains the risk badge: one toast per issue, worst first. */
-export function showIssueToasts(model: Model): void {
-  const issues = systemIssues(model);
-  if (issues.length === 0) {
-    toast('All monitored sensors are within their normal range', 'ok');
-    return;
-  }
-
-  const shown = issues.slice(0, MAX_ISSUE_TOASTS);
-  for (const { title, detail, risk } of shown) {
-    toast(`${title} - ${detail} (${risk.reason})`, risk.level === 'critical' ? 'error' : 'warn', ISSUE_TOAST_MS);
-  }
-  if (issues.length > shown.length) {
-    toast(`...and ${issues.length - shown.length} more`, 'info', ISSUE_TOAST_MS);
-  }
 }
 
 function renderLoads(model: Model): void {

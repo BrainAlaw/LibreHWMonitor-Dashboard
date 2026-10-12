@@ -1,16 +1,18 @@
 import './styles.css';
 import { connectStream } from './api';
 import { el } from './dom';
-import { showDisconnected, showHealth } from './header';
+import { onConnectionChange, showDisconnected, showHealth } from './header';
+import { initIssues } from './issues';
 import { History } from './history';
 import { Model, signatureOf } from './model';
 import { onPrefsChange, prefs } from './prefs';
 import { initSettings } from './settings';
 import type { Snapshot } from './types';
+import { initWindowChrome } from './window';
 import { renderCpu } from './views/cpu';
 import { renderGpu } from './views/gpu';
 import { recordNetworkHistory, renderNetwork } from './views/network';
-import { recordLoadHistory, renderOverview, showIssueToasts } from './views/overview';
+import { recordLoadHistory, renderOverview } from './views/overview';
 import { renderPower } from './views/power';
 import { renderRaw } from './views/raw';
 import { renderStorage } from './views/storage';
@@ -33,6 +35,9 @@ function render(current: Model): void {
 }
 
 const settings = initSettings(() => model);
+const issues = initIssues(() => model);
+initWindowChrome();
+onConnectionChange(issues.refresh);
 
 function onSnapshot(snapshot: Snapshot): void {
   // The stream pushes every sample; skip the DOM work when nothing changed.
@@ -45,11 +50,8 @@ function onSnapshot(snapshot: Snapshot): void {
   recordNetworkHistory(model, history);
   render(model);
   settings.refreshFans();
+  issues.refresh();
 }
-
-el('systemRisk').addEventListener('click', () => {
-  if (model) showIssueToasts(model);
-});
 
 onPrefsChange(() => {
   if (model) render(model);
