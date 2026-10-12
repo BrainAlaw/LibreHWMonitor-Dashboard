@@ -1,47 +1,54 @@
 import './styles.css';
 import { connectStream } from './api';
-import { setText } from './dom';
-import { hideFan } from './fans';
+import { el } from './dom';
+import { showDisconnected, showHealth } from './header';
 import { History } from './history';
 import { Model, signatureOf } from './model';
-import { initSettingsPanel, showDisconnected, showHealth } from './sidebar';
+import { onPrefsChange, prefs } from './prefs';
+import { initSettings } from './settings';
 import type { Snapshot } from './types';
 import { renderCpu } from './views/cpu';
 import { renderGpu } from './views/gpu';
-import { renderNetwork } from './views/network';
-import { renderOverview } from './views/overview';
+import { recordNetworkHistory, renderNetwork } from './views/network';
+import { recordLoadHistory, renderOverview } from './views/overview';
 import { renderPower } from './views/power';
 import { renderRaw } from './views/raw';
+import { renderStorage } from './views/storage';
 
 const history = new History();
 let model: Model | null = null;
 let lastSignature = '';
 
 function render(current: Model): void {
-  setText('hostName', current.host || 'PC Monitor');
-  renderOverview(current);
+  const { showRaw } = prefs();
+  el('rawSection').hidden = !showRaw;
+
+  renderOverview(current, history);
   renderCpu(current);
   renderGpu(current);
   renderNetwork(current, history);
   renderPower(current);
-  renderRaw(current);
+  renderStorage(current);
+  if (showRaw) renderRaw(current);
 }
+
+const settings = initSettings(() => model);
 
 function onSnapshot(snapshot: Snapshot): void {
   // The stream pushes every sample; skip the DOM work when nothing changed.
   const signature = signatureOf(snapshot);
   if (signature === lastSignature) return;
   lastSignature = signature;
+
   model = new Model(snapshot);
+  recordLoadHistory(model, history);
+  recordNetworkHistory(model, history);
   render(model);
+  settings.refreshFans();
 }
 
-document.addEventListener('click', event => {
-  const button = (event.target as Element).closest<HTMLElement>('.fan-hide');
-  if (!button?.dataset['key']) return;
-  hideFan(button.dataset['key']);
-  if (model) renderPower(model);
+onPrefsChange(() => {
+  if (model) render(model);
 });
 
 connectStream({ onSnapshot, onHealth: showHealth, onDisconnect: showDisconnected });
-void initSettingsPanel();

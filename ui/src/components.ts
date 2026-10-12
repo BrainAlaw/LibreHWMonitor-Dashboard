@@ -1,5 +1,6 @@
 import { clamp } from './format';
 import { h, type Safe } from './html';
+import { spinSeconds } from './fans';
 import { gaugeIcon } from './icons';
 import { colorForPercent, isPercentLike, tempColor } from './scoring';
 import type { Sensor } from './types';
@@ -81,13 +82,26 @@ export function cpuThermalTile(sensor: Sensor | undefined): Safe {
     : unavailableTile('CPU Tctl/Tdie', 'Run as Administrator to read CPU temperature', 'TEMP');
 }
 
+const BLADE = 'M24 23C22 15 26 8 34 8C33 15 30 21 25 24Z';
+
+function rotor(spin: number | null): Safe {
+  const blades = [0, 72, 144, 216, 288].map(angle => h`<path d="${BLADE}" transform="rotate(${angle} 24 24)"/>`);
+  return h`<svg viewBox="0 0 48 48" aria-hidden="true">
+    <circle class="fan-ring" cx="24" cy="24" r="22"/>
+    <g class="fan-rotor${spin === null ? ' is-idle' : ''}" style="--spin:${spin ?? 0}s">
+      <g class="fan-blades">${blades}</g>
+      <circle class="fan-hub" cx="24" cy="24" r="4.5"/>
+    </g>
+  </svg>`;
+}
+
+/** Fan or pump card; the rotor spins at a speed that follows the reading. */
 export function coolingCard(sensor: Sensor, key: string, index: number): Safe {
   const raw = sensor.number ?? 0;
   const load = sensor.type === 'Fan' ? Math.min(100, raw / 30) : clamp(raw, 0, 100);
   const label = sensor.text.replace(/^fan\s*/i, 'Fan ') || `Fan ${index + 1}`;
-  return h`<article class="fan-card" title="${sensor.pathText}" style="position:relative">
-    <button class="fan-hide" data-key="${key}" title="Hide this fan">&times;</button>
-    <div class="fan-avatar" style="--fan-color:${colorForPercent(load)}"></div>
+  return h`<article class="fan-card" data-key="${key}" title="${sensor.pathText}" style="--fan-color:${colorForPercent(load)}">
+    <div class="fan-rotor-box">${rotor(spinSeconds(sensor))}</div>
     <div class="fan-copy">
       <div class="fan-name">${label}</div>
       <div class="fan-value">${sensor.valueText || '--'}</div>

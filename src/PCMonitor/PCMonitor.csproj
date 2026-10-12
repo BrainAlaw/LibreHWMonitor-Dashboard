@@ -33,7 +33,7 @@
     <InternalsVisibleTo Include="PCMonitor.Tests" />
   </ItemGroup>
 
-  <!-- The dashboard is built by Vite into wwwroot and embedded in the exe. -->
+  <!-- The dashboard is built by Vite into wwwroot (stable file names) and embedded in the exe. -->
   <ItemGroup>
     <UiSource Include="$(UiDirectory)src\**;$(UiDirectory)index.html;$(UiDirectory)package.json;$(UiDirectory)package-lock.json;$(UiDirectory)tsconfig.json;$(UiDirectory)vite.config.ts" />
     <EmbeddedResource Include="wwwroot\**" />
@@ -42,9 +42,9 @@
   <Target Name="BuildUi" BeforeTargets="BeforeBuild" Inputs="@(UiSource)" Outputs="$(MSBuildThisFileDirectory)wwwroot\index.html" Condition="'$(SkipUiBuild)' != 'true'">
     <Exec Command="npm ci" WorkingDirectory="$(UiDirectory)" Condition="!Exists('$(UiDirectory)node_modules')" />
     <Exec Command="npm run build" WorkingDirectory="$(UiDirectory)" />
+    <!-- On a clean checkout wwwroot does not exist yet when the items above are evaluated. -->
     <ItemGroup>
-      <EmbeddedResource Remove="wwwroot\**" />
-      <EmbeddedResource Include="wwwroot\**" />
+      <EmbeddedResource Include="wwwroot\**" Exclude="@(EmbeddedResource)" />
     </ItemGroup>
   </Target>
 </Project>

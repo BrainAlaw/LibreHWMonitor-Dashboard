@@ -6,134 +6,135 @@
   <title>PC Monitor</title>
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="sidebar-inner">
-      <div class="brand">
-        <h1 id="hostName">waiting for telemetry</h1>
-      </div>
-
-      <div class="status-box" id="healthBox" data-state="unknown">
-        <div id="healthText">Connecting...</div>
-        <div class="path" id="healthDetail"></div>
-      </div>
-
-      <details class="settings-box" id="settingsBox">
-        <summary>Settings</summary>
-        <div class="field"><label for="setPort">Port (restart)</label><input id="setPort" type="number" min="1" max="65535" step="1"></div>
-        <div class="field"><label for="setSampling">Sampling</label>
-          <select id="setSampling"><option value="500">0.5 s</option><option value="1000">1 s</option><option value="2000">2 s</option><option value="5000">5 s</option></select>
-        </div>
-        <label class="check"><input id="setAutostart" type="checkbox"> Start with Windows</label>
-        <label class="check"><input id="setMinimized" type="checkbox"> Start minimized</label>
-        <label class="check"><input id="setCloseToTray" type="checkbox"> Close to tray</label>
-        <label class="check"><input id="setAllowLan" type="checkbox"> Allow LAN access (restart)</label>
-        <div id="lanBox" hidden>
-          <div id="lanUrls"></div>
-          <button class="btn" id="newToken">New token</button>
-        </div>
-        <button class="btn" id="saveSettings">Save</button>
-        <div class="path" id="settingsMsg"></div>
-      </details>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 13h4l3-8 4 15 3-9 2 2h4"/></svg>
+      <span class="brand-name">PC Monitor</span>
     </div>
-  </aside>
-  <main class="app">
+    <div class="topbar-right">
+      <span class="badge" id="systemRisk">Calculating</span>
+      <div class="status-pill" id="statusPill" data-state="unknown">
+        <span class="dot"></span>
+        <span id="healthText">Connecting...</span>
+        <span class="status-detail" id="healthDetail"></span>
+      </div>
+      <button class="icon-button" id="settingsButton" aria-label="Settings" aria-expanded="false" aria-controls="settingsPopover" title="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+  </header>
 
-    <section class="content">
-      <section class="layout" data-section="overview">
-        <div class="panel span-12">
-          <div class="panel-header">
-            <h2 class="panel-title">Major Thermals</h2>
-            <span class="badge" id="systemRisk">Calculating</span>
-          </div>
-          <div class="panel-body">
-            <div class="device-grid" id="thermalSummary"></div>
+  <div class="settings-popover" id="settingsPopover" role="dialog" aria-label="Settings" hidden>
+    <section class="settings-section" data-local-only>
+      <h3>General</h3>
+      <label class="row"><span>Start with Windows</span><span class="switch"><input id="setAutostart" type="checkbox"><i></i></span></label>
+      <label class="row"><span>Start minimized</span><span class="switch"><input id="setMinimized" type="checkbox"><i></i></span></label>
+      <label class="row"><span>Close to tray</span><span class="switch"><input id="setCloseToTray" type="checkbox"><i></i></span></label>
+      <label class="row"><span>Sampling<small>how often sensors are read</small></span>
+        <select id="setSampling"><option value="500">0.5 s</option><option value="1000">1 s</option><option value="2000">2 s</option><option value="5000">5 s</option></select>
+      </label>
+      <label class="row"><span>Port<small>applies after restart</small></span><input id="setPort" type="number" min="1" max="65535" step="1"></label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Display</h3>
+      <label class="row"><span>Raw sensor matrix</span><span class="switch"><input id="setShowRaw" type="checkbox"><i></i></span></label>
+      <details id="fanSettings">
+        <summary class="row"><span>Cooling fans<small id="fanSummary">choose which are shown</small></span></summary>
+        <div class="fan-list" id="fanList"></div>
+      </details>
+    </section>
+
+    <details class="settings-section">
+      <summary><h3>Power estimate</h3></summary>
+      <label class="row"><span>Monitors</span><input id="pwMonitors" type="number" min="0" max="12" step="1"></label>
+      <label class="row"><span>Watts per monitor</span><input id="pwMonitorWatts" type="number" min="0" max="500" step="1"></label>
+      <label class="row"><span>USB / other devices (W)</span><input id="pwUsb" type="number" min="0" max="500" step="1"></label>
+      <label class="row"><span>Board + RAM + fans (W)</span><input id="pwPlatform" type="number" min="0" max="500" step="1"></label>
+      <label class="row"><span>PSU efficiency (%)</span><input id="pwEfficiency" type="number" min="50" max="100" step="1"></label>
+      <p class="settings-note">Only CPU and GPU package power is measured. Everything else is an assumption you can tune here; set monitors to 0 if they use another outlet.</p>
+    </details>
+
+    <details class="settings-section" data-local-only>
+      <summary><h3>LAN access</h3></summary>
+      <label class="row"><span>Allow other devices<small>applies after restart</small></span><span class="switch"><input id="setAllowLan" type="checkbox"><i></i></span></label>
+      <div id="lanBox" hidden>
+        <div id="lanUrls"></div>
+        <div class="row"><span class="muted">Links include a secret token</span><button class="btn" id="newToken">New token</button></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <main class="content">
+    <section class="layout">
+      <div class="panel span-12" style="--accent: var(--orange)">
+        <div class="panel-header"><h2 class="panel-title">Major Thermals</h2></div>
+        <div class="panel-body"><div id="thermalSummary"></div></div>
+      </div>
+
+      <div class="panel span-8" style="--accent: var(--green)">
+        <div class="panel-header"><h2 class="panel-title">Major Loads</h2><span class="panel-note">last 60 samples</span></div>
+        <div class="panel-body">
+          <div id="loadSummary"></div>
+          <div id="loadHistory" class="history-block"></div>
+        </div>
+      </div>
+
+      <div class="panel span-4" style="--accent: var(--blue)">
+        <div class="panel-header"><h2 class="panel-title">Network</h2></div>
+        <div class="panel-body"><div id="networkSummary" class="fill-column"></div></div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel span-4" style="--accent: var(--cyan)">
+        <div class="panel-header"><h2 class="panel-title">CPU</h2><span class="panel-note" id="cpuName"></span></div>
+        <div class="panel-body">
+          <div id="cpuSummary"></div>
+          <div class="core-grid" id="coreGrid"></div>
+        </div>
+      </div>
+
+      <div class="panel span-4" style="--accent: var(--orange)">
+        <div class="panel-header"><h2 class="panel-title">Power and Cooling</h2><span class="panel-note" id="powerFanCount"></span></div>
+        <div class="panel-body">
+          <div id="powerSummary"></div>
+          <div class="cooling-grid" id="powerCoolingGrid"></div>
+        </div>
+      </div>
+
+      <div class="panel span-4" style="--accent: var(--magenta)">
+        <div class="panel-header"><h2 class="panel-title">GPU</h2><span class="panel-note" id="gpuName"></span></div>
+        <div class="panel-body"><div class="device-grid" id="gpuCards"></div></div>
+      </div>
+    </section>
+
+    <section class="layout" id="storageSection">
+      <div class="panel span-12" style="--accent: var(--yellow)">
+        <div class="panel-header"><h2 class="panel-title">Storage</h2><span class="panel-note" id="storageCount"></span></div>
+        <div class="panel-body"><div class="drive-grid" id="driveGrid"></div></div>
+      </div>
+    </section>
+
+    <section class="layout" id="rawSection">
+      <div class="panel span-12" style="--accent: var(--muted-2)">
+        <div class="panel-header"><h2 class="panel-title">Raw Sensor Matrix</h2><span class="panel-note" id="rawCount"></span></div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Device</th><th>Sensor</th><th>Type</th><th>Min</th><th>Value</th><th>Max</th><th>Health</th></tr>
+              </thead>
+              <tbody id="rawTable"></tbody>
+            </table>
           </div>
         </div>
-
-        <div class="panel span-8">
-          <div class="panel-header">
-            <h2 class="panel-title">Major Loads</h2>
-            <span class="badge">cpu, gpu, memory, storage</span>
-          </div>
-          <div class="panel-body">
-            <div class="device-grid" id="loadSummary"></div>
-          </div>
-        </div>
-
-        <div class="panel span-4">
-          <div class="panel-header">
-            <h2 class="panel-title">Network</h2>
-            <span class="badge">download and upload</span>
-          </div>
-          <div class="panel-body">
-            <div id="networkSummary"></div>
-          </div>
-        </div>
-
-      </section>
-
-      <section class="layout" data-section="compute">
-        <div class="panel span-4">
-          <div class="panel-header">
-            <h2 class="panel-title">CPU</h2>
-            <span class="badge" id="cpuName">CPU</span>
-          </div>
-          <div class="panel-body">
-            <div id="cpuSummary"></div>
-            <div class="core-grid" id="coreGrid"></div>
-          </div>
-        </div>
-
-        <div class="panel span-4">
-          <div class="panel-header">
-            <h2 class="panel-title">Power and Cooling</h2>
-            <span class="badge" id="powerFanCount">loose model</span>
-          </div>
-          <div class="panel-body">
-            <div class="signal-grid compact" id="powerSummary"></div>
-            <div class="cooling-grid" id="powerCoolingGrid"></div>
-          </div>
-        </div>
-
-        <div class="panel span-4 adaptive-panel">
-          <div class="panel-header">
-            <h2 class="panel-title">GPU</h2>
-            <span class="badge" id="gpuName">GPU</span>
-          </div>
-          <div class="panel-body is-flex">
-            <div class="device-grid gpu-grid" id="gpuCards"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="layout" data-section="raw">
-        <div class="panel span-12">
-          <div class="panel-header">
-            <h2 class="panel-title">Raw Sensor Matrix</h2>
-            <span class="badge" id="rawCount">0 shown</span>
-          </div>
-          <div class="panel-body">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Device</th>
-                    <th>Sensor</th>
-                    <th>Type</th>
-                    <th>Min</th>
-                    <th>Value</th>
-                    <th>Max</th>
-                    <th>Health</th>
-                  </tr>
-                </thead>
-                <tbody id="rawTable"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
     </section>
   </main>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

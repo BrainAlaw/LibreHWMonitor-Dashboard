@@ -115,16 +115,32 @@ export function scoreSensor(sensor: Sensor): Risk {
   return NORMAL;
 }
 
+export interface SystemIssue {
+  sensor: Sensor;
+  risk: Risk;
+}
+
+/** Sensors worth watching that are currently outside their normal range, worst first. */
+export function systemIssues(model: Model): SystemIssue[] {
+  return watchedSensors(model)
+    .map(sensor => ({ sensor, risk: scoreSensor(sensor) }))
+    .filter(issue => issue.risk.level !== 'ok')
+    .sort((a, b) => a.risk.score - b.risk.score);
+}
+
 export function systemLevel(model: Model): Level {
-  const watched = model.sensors.filter(s =>
+  const levels = systemIssues(model).map(issue => issue.risk.level);
+  if (levels.includes('critical')) return 'critical';
+  return levels.includes('warn') ? 'warn' : 'ok';
+}
+
+function watchedSensors(model: Model): Sensor[] {
+  return model.sensors.filter(s =>
     isLiveTemperature(s) ||
     (s.category === 'cpu' && s.type === 'Power' && s.text === 'Package') ||
     (s.category === 'cpu' && s.type === 'Clock' && s.text === 'Core #1') ||
     (s.type === 'Load' && (/used space/i.test(s.text) || (s.number ?? 0) >= 90)) ||
     (s.type === 'Level' && /remaining life|available spare|percentage used/i.test(s.text)));
-  const levels = watched.map(s => scoreSensor(s).level);
-  if (levels.includes('critical')) return 'critical';
-  return levels.includes('warn') ? 'warn' : 'ok';
 }
 
 export function chooseStorageTemperature(sensors: Sensor[]): Sensor | undefined {

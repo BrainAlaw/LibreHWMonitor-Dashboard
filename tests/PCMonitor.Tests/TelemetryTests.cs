@@ -22,7 +22,7 @@ public sealed class SnapshotBuilderTests
             Sensor("/cpu/load/3", "Inf", "Load", float.PositiveInfinity)
         ]);
 
-        TelemetrySnapshot snapshot = SnapshotBuilder.Build("PC", DateTimeOffset.UnixEpoch, [cpu]);
+        TelemetrySnapshot snapshot = SnapshotBuilder.Build(DateTimeOffset.UnixEpoch, [cpu]);
 
         SensorReading only = Assert.Single(snapshot.Sensors);
         Assert.Equal("CPU Total", only.Name);
@@ -33,7 +33,7 @@ public sealed class SnapshotBuilderTests
     {
         RawHardware cpu = Hardware("CPU", "Cpu", [Sensor("/cpu/temp/0", "Core", "Temperature", 63.456789f, max: 90.04f)]);
 
-        SensorReading reading = Assert.Single(SnapshotBuilder.Build("PC", DateTimeOffset.UnixEpoch, [cpu]).Sensors);
+        SensorReading reading = Assert.Single(SnapshotBuilder.Build(DateTimeOffset.UnixEpoch, [cpu]).Sensors);
 
         Assert.Equal("°C", reading.Unit);
         Assert.Equal("Temperatures", reading.Group);
@@ -47,7 +47,7 @@ public sealed class SnapshotBuilderTests
     {
         RawHardware nic = Hardware("Ethernet", "Network", [Sensor("/nic/x/throughput/7", "Download Speed", "Throughput", 2_097_152f)]);
 
-        SensorReading reading = Assert.Single(SnapshotBuilder.Build("PC", DateTimeOffset.UnixEpoch, [nic]).Sensors);
+        SensorReading reading = Assert.Single(SnapshotBuilder.Build(DateTimeOffset.UnixEpoch, [nic]).Sensors);
 
         Assert.Equal("B/s", reading.Unit);
         Assert.Equal(2_097_152d, reading.Value);
@@ -59,7 +59,7 @@ public sealed class SnapshotBuilderTests
         RawHardware board = Hardware("ASUS Board", "Motherboard",
             children: [Hardware("ITE IT8665E", "SuperIO", [Sensor("/lpc/it8665e/0/fan/0", "Fan #1", "Fan", 1000f)])]);
 
-        TelemetrySnapshot snapshot = SnapshotBuilder.Build("PC", DateTimeOffset.UnixEpoch, [board]);
+        TelemetrySnapshot snapshot = SnapshotBuilder.Build(DateTimeOffset.UnixEpoch, [board]);
 
         SensorReading fan = Assert.Single(snapshot.Sensors);
         Assert.Equal("ASUS Board", fan.Device);
@@ -73,7 +73,7 @@ public sealed class SnapshotBuilderTests
         RawHardware gpu = Hardware("GPU", "GpuNvidia", [Sensor("/g/2", "B", "Load", 1f, index: 2), Sensor("/g/1", "A", "Load", 1f, index: 1)]);
         RawHardware cpu = Hardware("CPU", "Cpu", [Sensor("/c/0", "C", "Load", 1f)]);
 
-        TelemetrySnapshot snapshot = SnapshotBuilder.Build("PC", DateTimeOffset.UnixEpoch, [gpu, cpu]);
+        TelemetrySnapshot snapshot = SnapshotBuilder.Build(DateTimeOffset.UnixEpoch, [gpu, cpu]);
 
         Assert.Equal(["/c/0", "/g/1", "/g/2"], snapshot.Sensors.Select(s => s.Id));
     }
@@ -97,7 +97,7 @@ public sealed class TraySummaryTests
     [Fact]
     public void ShowsLoadAndPreferredTemperature()
     {
-        TelemetrySnapshot snapshot = new("PC", DateTimeOffset.UnixEpoch, [],
+        TelemetrySnapshot snapshot = new(DateTimeOffset.UnixEpoch, [],
         [
             Reading("/amdcpu/0/load/0", "CPU Total", "Load", 87.2),
             Reading("/amdcpu/0/temperature/1", "Core #1", "Temperature", 90),

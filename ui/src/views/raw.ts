@@ -6,10 +6,10 @@ import { hardwareKind, scoreSensor } from '../scoring';
 const RISK_CLASS = { critical: 'bad-text', warn: 'warn-text', ok: 'ok' } as const;
 
 export function renderRaw(model: Model): void {
-  setText('rawCount', `${model.sensors.length} shown`);
+  setText('rawCount', `${model.sensors.length} sensors`);
   setHtml('rawTable', h`${model.sensors.map(sensor => {
     const risk = scoreSensor(sensor);
-    return h`<tr>
+    return h`<tr data-key="${sensor.id}">
       <td data-label="Device"><strong>${sensor.deviceName}</strong><div class="path">${hardwareKind(sensor)}</div></td>
       <td data-label="Sensor"><strong>${sensor.displayName}</strong><div class="path">${sensor.id}</div></td>
       <td data-label="Type"><span class="badge">${sensor.type}</span></td>

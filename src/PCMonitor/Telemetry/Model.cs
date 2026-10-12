@@ -30,7 +30,6 @@ internal sealed record SensorReading(
     int Decimals);
 
 internal sealed record TelemetrySnapshot(
-    string Host,
     DateTimeOffset Timestamp,
     IReadOnlyList<HardwareInfo> Hardware,
     IReadOnlyList<SensorReading> Sensors);

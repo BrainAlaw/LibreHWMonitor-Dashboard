@@ -1,23 +1,18 @@
 import { coolingCard, valueSignal } from '../components';
 import { setHtml, setText } from '../dom';
+import { fanKey, visibleCoolingSensors } from '../fans';
 import { h } from '../html';
-import { activeCoolingSensors, fanKey } from '../fans';
 import type { Model } from '../model';
+import { prefs, type PowerAssumptions } from '../prefs';
 import { hardwareKind } from '../scoring';
-import { groupBy, deviceRoot } from './util';
+import { deviceRoot, groupBy } from './util';
 
-/** Rough assumptions for everything the sensors cannot measure. */
-export const POWER_ASSUMPTIONS = {
-  motherboardWatts: 45,
-  ramWatts: 12,
-  fansAndCoolingWatts: 8,
-  usbWatts: 15,
-  monitorCount: 2,
-  monitorWatts: 32,
-  nvmeWatts: 5,
-  sataSsdWatts: 2,
-  psuEfficiency: 0.88
-} as const;
+const NVME_WATTS = 5;
+const SATA_SSD_WATTS = 2;
+const CPU_IDLE_WATTS = 35;
+const CPU_LOAD_SPAN_WATTS = 80;
+const GPU_IDLE_WATTS = 25;
+const GPU_LOAD_SPAN_WATTS = 320;
 
 export interface PowerEstimate {
   measuredDc: number;
@@ -26,42 +21,47 @@ export interface PowerEstimate {
   wall: number;
 }
 
-export function estimatePower(model: Model): PowerEstimate {
+/**
+ * Rough power model. Measured: CPU and GPU package power. Estimated from load when a sensor is missing,
+ * and from the user's assumptions for board, RAM, fans, drives and peripherals.
+ */
+export function estimatePower(model: Model, assumptions: PowerAssumptions): PowerEstimate {
   const cpuMeasured = model.byText('Package', 'cpu', 'Power')?.number ?? 0;
   const gpuMeasured = model.byText('GPU Package', 'gpu', 'Power')?.number ?? 0;
   const cpuLoad = model.byText('CPU Total', 'cpu', 'Load')?.number ?? 0;
   const gpuLoad = (model.byText('GPU Board Power', 'gpu', 'Load') ?? model.byText('GPU Power', 'gpu', 'Load'))?.number ?? 0;
 
-  const storage = groupBy(model.sensors.filter(s => s.category === 'storage'), deviceRoot)
+  const kinds = groupBy(model.sensors.filter(s => s.category === 'storage'), deviceRoot)
     .map(([, sensors]) => (sensors[0] ? hardwareKind(sensors[0]) : ''));
-  const nvmeCount = storage.filter(kind => kind === 'NVMe').length;
-  const sataCount = storage.filter(kind => kind === 'SSD').length;
+  const drives = kinds.filter(k => k === 'NVMe').length * NVME_WATTS + kinds.filter(k => k === 'SSD').length * SATA_SSD_WATTS;
 
-  const cpu = cpuMeasured > 0 ? cpuMeasured : 35 + (cpuLoad / 100) * 80;
-  const gpu = gpuMeasured > 0 ? gpuMeasured : 25 + (gpuLoad / 100) * 320;
-  const storageWatts = nvmeCount * POWER_ASSUMPTIONS.nvmeWatts + sataCount * POWER_ASSUMPTIONS.sataSsdWatts;
-  const platform = POWER_ASSUMPTIONS.motherboardWatts + POWER_ASSUMPTIONS.ramWatts + POWER_ASSUMPTIONS.fansAndCoolingWatts;
-  const peripherals = POWER_ASSUMPTIONS.usbWatts + POWER_ASSUMPTIONS.monitorCount * POWER_ASSUMPTIONS.monitorWatts;
-  const internalDc = cpu + gpu + storageWatts + platform;
+  const cpu = cpuMeasured > 0 ? cpuMeasured : CPU_IDLE_WATTS + (cpuLoad / 100) * CPU_LOAD_SPAN_WATTS;
+  const gpu = gpuMeasured > 0 ? gpuMeasured : GPU_IDLE_WATTS + (gpuLoad / 100) * GPU_LOAD_SPAN_WATTS;
+  const internalDc = cpu + gpu + drives + assumptions.platformWatts;
+  const peripherals = assumptions.usbWatts + assumptions.monitors * assumptions.monitorWatts;
 
   return {
     measuredDc: cpuMeasured + gpuMeasured,
     internalDc,
     peripherals,
-    wall: internalDc / POWER_ASSUMPTIONS.psuEfficiency + peripherals
+    wall: internalDc / (assumptions.efficiencyPercent / 100) + peripherals
   };
 }
 
 export function renderPower(model: Model): void {
-  const estimate = estimatePower(model);
-  setHtml('powerSummary', h`
-    ${valueSignal('Wall Estimate', `${Math.round(estimate.wall)} W`, 'PC + monitors + USB, approximate', Math.min(100, estimate.wall / 7), 'var(--orange)')}
-    ${valueSignal('Measured CPU/GPU', `${Math.round(estimate.measuredDc)} W`, 'from hardware power sensors', Math.min(100, estimate.measuredDc / 5), 'var(--green)')}
-    ${valueSignal('Internal DC', `${Math.round(estimate.internalDc)} W`, 'cpu + gpu + board + ram + storage', Math.min(100, estimate.internalDc / 6), 'var(--blue)')}
-    ${valueSignal('Peripherals', `${Math.round(estimate.peripherals)} W`, `${POWER_ASSUMPTIONS.monitorCount} monitors + USB estimate`, Math.min(100, estimate.peripherals), 'var(--cyan)')}`);
+  const assumptions = prefs().power;
+  const estimate = estimatePower(model, assumptions);
+  const watts = (value: number): string => `${Math.round(value)} W`;
 
-  const fans = activeCoolingSensors(model);
-  setText('powerFanCount', fans.length ? `${fans.length} fans` : 'loose model');
+  setHtml('powerSummary', h`<div class="signal-grid compact">
+    ${valueSignal('Wall (est.)', watts(estimate.wall), 'at the socket', Math.min(100, estimate.wall / 7), 'var(--orange)')}
+    ${valueSignal('CPU + GPU', watts(estimate.measuredDc), 'measured', Math.min(100, estimate.measuredDc / 5), 'var(--green)')}
+    ${valueSignal('Internal DC', watts(estimate.internalDc), 'before PSU losses', Math.min(100, estimate.internalDc / 6), 'var(--blue)')}
+    ${valueSignal('Peripherals', watts(estimate.peripherals), `${assumptions.monitors} monitors + USB`, Math.min(100, estimate.peripherals), 'var(--cyan)')}
+  </div>`);
+
+  const fans = visibleCoolingSensors(model);
+  setText('powerFanCount', fans.length ? `${fans.length} fans` : '');
   setHtml('powerCoolingGrid', fans.length
     ? h`${fans.map((fan, index) => coolingCard(fan, fanKey(fan), index))}`
     : h`<div class="muted">No active fan or pump telemetry reported.</div>`);

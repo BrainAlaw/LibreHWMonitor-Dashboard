@@ -34,7 +34,7 @@ export function formatMetricName(text: string, group: string): string {
   return text ? `${label}: ${text}` : label;
 }
 
-export function toSensor(raw: SnapshotSensor, host: string): Sensor {
+export function toSensor(raw: SnapshotSensor): Sensor {
   return {
     id: raw.id,
     type: raw.type,
@@ -43,7 +43,7 @@ export function toSensor(raw: SnapshotSensor, host: string): Sensor {
     deviceName: raw.device,
     groupName: raw.group,
     category: categorize(raw.id, raw.name, raw.type),
-    pathText: [host, raw.device, ...raw.path, raw.group, raw.name].join(' / '),
+    pathText: [raw.device, ...raw.path, raw.group, raw.name].join(' / '),
     valueText: formatValue(raw.value, raw.unit, raw.decimals, raw.type),
     minText: formatValue(raw.min, raw.unit, raw.decimals, raw.type),
     maxText: formatValue(raw.max, raw.unit, raw.decimals, raw.type),
@@ -59,14 +59,12 @@ export function kilobytesPerSecond(sensor: Sensor | undefined): number {
 }
 
 export class Model {
-  readonly host: string;
   readonly hardware: HardwareInfo[];
   readonly sensors: Sensor[];
 
   constructor(snapshot: Snapshot) {
-    this.host = snapshot.host;
     this.hardware = snapshot.hardware;
-    this.sensors = snapshot.sensors.map(sensor => toSensor(sensor, snapshot.host));
+    this.sensors = snapshot.sensors.map(toSensor);
   }
 
   byText(text: string, category?: Category, type?: string): Sensor | undefined {

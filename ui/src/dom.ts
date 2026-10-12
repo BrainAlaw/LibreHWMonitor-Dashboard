@@ -1,4 +1,5 @@
 import type { Safe } from './html';
+import { morph } from './morph';
 
 export function el<T extends HTMLElement = HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -7,9 +8,11 @@ export function el<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 
 export function setText(id: string, value: string): void {
-  el(id).textContent = value;
+  const element = el(id);
+  if (element.textContent !== value) element.textContent = value;
 }
 
+/** Patches the element's content in place (see `morph`), keeping animations alive. */
 export function setHtml(id: string, content: Safe): void {
-  el(id).innerHTML = content.html;
+  morph(el(id), content.html);
 }

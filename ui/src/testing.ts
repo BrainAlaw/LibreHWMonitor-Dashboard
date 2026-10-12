@@ -16,5 +16,5 @@ export function sensor(partial: Partial<SnapshotSensor> & Pick<SnapshotSensor, '
 }
 
 export function snapshot(sensors: SnapshotSensor[], hardware: Snapshot['hardware'] = []): Snapshot {
-  return { host: 'TEST-PC', timestamp: '2026-01-01T00:00:00Z', hardware, sensors };
+  return { timestamp: '2026-01-01T00:00:00Z', hardware, sensors };
 }

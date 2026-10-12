@@ -3,7 +3,7 @@ namespace PCMonitor.Telemetry;
 /// <summary>Pure conversion from raw hardware trees to the dashboard snapshot.</summary>
 internal static class SnapshotBuilder
 {
-    public static TelemetrySnapshot Build(string host, DateTimeOffset timestamp, IEnumerable<RawHardware> devices)
+    public static TelemetrySnapshot Build(DateTimeOffset timestamp, IEnumerable<RawHardware> devices)
     {
         List<HardwareInfo> hardware = [];
         List<SensorReading> sensors = [];
@@ -13,7 +13,7 @@ internal static class SnapshotBuilder
             Visit(device, device.Name, [], hardware, sensors);
         }
 
-        return new TelemetrySnapshot(host, timestamp, hardware, sensors);
+        return new TelemetrySnapshot(timestamp, hardware, sensors);
     }
 
     private static void Visit(

@@ -19,7 +19,6 @@ export interface HardwareInfo {
 }
 
 export interface Snapshot {
-  host: string;
   timestamp: string;
   hardware: HardwareInfo[];
   sensors: SnapshotSensor[];

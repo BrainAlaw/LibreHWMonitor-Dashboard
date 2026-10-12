@@ -129,7 +129,7 @@ internal sealed class TelemetryCollector : IDisposable
     {
         IReadOnlyList<RawHardware> devices = source.Poll();
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        TelemetrySnapshot snapshot = SnapshotBuilder.Build(Environment.MachineName, now, devices);
+        TelemetrySnapshot snapshot = SnapshotBuilder.Build(now, devices);
         int sensorCount = snapshot.Sensors.Count;
 
         string? problem = sensorCount == 0
