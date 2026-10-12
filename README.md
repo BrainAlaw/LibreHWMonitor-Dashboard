@@ -2,6 +2,8 @@
 
 Standalone Windows hardware monitoring dashboard. One self-contained executable: no LibreHardwareMonitor app, no Node.js, no browser, no .NET install.
 
+![PC Monitor dashboard](docs/dashboard-full.png)
+
 ```text
 PCMonitor.exe
   ├─ LibreHardwareMonitorLib   one background polling loop -> immutable snapshots
@@ -37,6 +39,7 @@ Stored in `%APPDATA%\PCMonitor\settings.json`, editable in the dashboard or by h
 | `Port` | `8096` | Dashboard port. If busy, the next free port (up to +19) is used. Restart to apply. |
 | `SamplingMs` | `1000` | Hardware polling interval (250-60000), applied live. |
 | `StartMinimized` | `false` | Start hidden in the tray. |
+| `AllowLan` / `AccessToken` | `false` / generated | LAN mode and its access token, see LAN access below. |
 | `CloseToTray` | `true` | Close button hides instead of exiting. |
 | `EnableCpu/Gpu/Memory/Motherboard/Storage/Network/Battery/Psu/Controller` | `true` | Toggle hardware groups (tray: Reset telemetry to apply). |
 
@@ -62,8 +65,8 @@ Off by default. Enable **Allow LAN access** in Settings (or `AllowLan` in `setti
 |---|---|
 | `GET /api/snapshot` | Latest snapshot: `timestamp`, `hardware[]`, `sensors[]` (`id`, `device`, `path`, `group`, `name`, `type`, `value`, `min`, `max`, `unit`, `decimals`). Throughput is in bytes per second. |
 | `GET /api/stream` | Server-sent events: `snapshot` on every sample, `health` on change, `: ping` heartbeats. |
-| `GET /api/health` | `status` (`starting`/`ok`/`degraded`/`error`), `elevated`, `sensorCount`, `hardwareCount`, `lastError`, `lastUpdate`. |
-| `GET/PUT /api/settings` | Read or update port, samplingMs, startMinimized, closeToTray, autostart (same-origin JSON only). |
+| `GET /api/health` | `status` (`starting`/`ok`/`degraded`/`error`), `elevated`, `sensorCount`, `hardwareCount`, `lastError`, `lastUpdate`, `port`, `version`. |
+| `GET/PUT /api/settings` | Read or update port, samplingMs, startMinimized, closeToTray, allowLan, autostart (same-origin JSON, local machine only). |
 
 By default the server binds to loopback only and rejects requests whose `Host` is not `127.0.0.1:<port>` / `localhost:<port>` (anti DNS-rebinding). See LAN access above for the optional network mode.
 
@@ -96,4 +99,4 @@ Installer: `iscc /DAppVersion=2.0.0 installer\PCMonitor.iss`. Release: push a `v
 
 ## License
 
-MIT. See `THIRD_PARTY_NOTICES.md` for bundled components.
+MIT, see [LICENSE](LICENSE). See `THIRD_PARTY_NOTICES.md` for bundled components.
