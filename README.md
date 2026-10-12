@@ -46,13 +46,13 @@ Logs: `%APPDATA%\PCMonitor\logs\` (7 days). UI override for development: put a b
 
 ## LAN access
 
-Off by default. Enable **Allow LAN access** in Settings (or  in settings.json) and restart.
+Off by default. Enable **Allow LAN access** in Settings (or `AllowLan` in `settings.json`) and restart.
 
 - The server then listens on all interfaces, and PC Monitor adds a Windows Firewall rule (Private profile only, program-based).
 - Only private-network clients (10.x, 172.16-31.x, 192.168.x, 169.254.x) are served; anything else gets 403.
-- Every LAN client needs the access token. Open the link from Settings (or tray: Copy LAN link), e.g. ; the token becomes an HttpOnly cookie and disappears from the address bar.
+- Every LAN client needs the access token. Open the link from Settings (or tray: Copy LAN link), e.g. `http://192.168.0.10:8096/?token=...`; the token becomes an HttpOnly cookie and disappears from the address bar.
 - LAN viewers get the dashboard only. Settings are available on the PC itself. **New token** invalidates every existing link.
-- Traffic is plain HTTP: use it on trusted networks only. The token is stored in .
+- Traffic is plain HTTP: use it on trusted networks only. The token is stored in `settings.json`.
 
 ## HTTP API
 
