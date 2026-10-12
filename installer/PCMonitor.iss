@@ -1,6 +1,6 @@
-; Inno Setup script. Build: iscc /DAppVersion=2.0.0 installer\PCMonitor.iss  (expects publish\PCMonitor.exe)
+; Inno Setup script. Build: iscc /DAppVersion=2.0.1 installer\PCMonitor.iss  (expects publish\PCMonitor.exe)
 #ifndef AppVersion
-  #define AppVersion "2.0.0"
+  #define AppVersion "2.0.1"
 #endif
 
 [Setup]
@@ -35,7 +35,7 @@ Name: "{autodesktop}\PC Monitor"; Filename: "{app}\PCMonitor.exe"; Tasks: deskto
 
 [Run]
 Filename: "schtasks.exe"; Parameters: "/Create /TN PCMonitor /SC ONLOGON /RL HIGHEST /TR ""\""{app}\PCMonitor.exe\"" --minimized"" /F"; Flags: runhidden; Tasks: autostart
-Filename: "{app}\PCMonitor.exe"; Description: "Launch PC Monitor"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\PCMonitor.exe"; Description: "Launch PC Monitor"; Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallRun]
 Filename: "schtasks.exe"; Parameters: "/Delete /TN PCMonitor /F"; Flags: runhidden; RunOnceId: "RemoveAutostartTask"
