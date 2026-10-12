@@ -2,7 +2,19 @@
 
 Supersedes the "Remaining Hardening" section of `STANDALONE_IMPLEMENTATION_PLAN.md`.
 
-## 1. Audit (current state)
+## 0. Implementation status
+
+| Phase | Status | Notes |
+|---|---|---|
+| 0 Cleanup | done | binaries/tools untracked, Node proxy + NSSM installer moved to legacy/ |
+| 1 Verify collector | done | elevated: 358/408 ids match official LHM 0.9.6 web server, 0 divergent values; diffs = /ssd->/ahci id rename + 6 NVMe level sensors (pre-release lib). Non-elevated drops ~150 ring-0 sensors (CPU clocks, IT8665E fans/volts, DIMM) |
+| 2 Core refactor | done | split into Telemetry/Server/Settings/Ui/Infra, background sampler, embedded UI, /api/health, single instance, port fallback, WebView2-missing browser fallback |
+| 3 Settings & UX | done | settings.json + dashboard panel, health box, tray tooltip, icon, Host/Origin checks. Not done: per-hardware status view, log tail in UI |
+| 4 Autostart | done | Scheduled Task via API/tray (round-trip verified) |
+| 5 Packaging | partly | self-contained single file builds (49 MB); Inno script + release workflow written but NOT executed (no Inno Setup locally, workflow never run on GitHub) |
+| 6 Tests | partly | tools/smoke-test.ps1 passes (non-elevated); no xUnit project, no 24 h soak, no multi-machine matrix |
+
+## 1. Audit (original state, before implementation)
 
 | Area | State | Problem |
 |---|---|---|

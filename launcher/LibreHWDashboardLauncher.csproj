@@ -5,13 +5,28 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>LibreHWDashboard</AssemblyName>
-    <RootNamespace>LibreHWDashboardLauncher</RootNamespace>
+    <AssemblyName>PCMonitor</AssemblyName>
+    <RootNamespace>PCMonitor</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Version>2.0.0</Version>
+    <Product>PC Monitor</Product>
+    <Company>PC Monitor</Company>
+    <Description>Standalone hardware monitoring dashboard</Description>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+    <AllowedReferenceRelatedFileExtensions>.pdb</AllowedReferenceRelatedFileExtensions>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\index.html" LogicalName="index.html" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.7-pre705" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
-    <PackageReference Include="System.Management" Version="10.0.9" />
   </ItemGroup>
 </Project>

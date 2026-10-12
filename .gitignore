@@ -10,3 +10,12 @@ logs/
 tools/nssm.exe
 tools/nssm-*/
 
+*.exe
+*.dll
+*.pdb
+*.zip
+launcher/publish/
+publish/
+release/
+runtimes/
+tools/LibreHardwareMonitor-*/

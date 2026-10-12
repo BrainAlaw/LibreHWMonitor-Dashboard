@@ -154,7 +154,14 @@
       min-width: 0;
     }
 
-    #telemetryPort { width: 86px; }
+    .status-box { margin-top: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); font-size: 12px; background: var(--panel-3); }
+    .status-box[data-state="ok"] { border-color: var(--green); }
+    .status-box[data-state="degraded"] { border-color: var(--yellow); }
+    .status-box[data-state="error"] { border-color: var(--red); }
+    .settings-box { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    .settings-box summary { cursor: pointer; }
+    .settings-box .field, .settings-box .check { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+    .settings-box .btn { margin-top: 8px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; cursor: pointer; }
     #refreshMs { width: 118px; }
 
     input:focus, select:focus {
@@ -1074,10 +1081,6 @@
 
       <div class="source-box">
         <div class="field">
-          <label for="telemetryPort">Telemetry port</label>
-          <input id="telemetryPort" type="number" min="1" max="65535" step="1" value="8085" inputmode="numeric">
-        </div>
-        <div class="field">
           <label for="refreshMs">Refresh</label>
           <select id="refreshMs">
             <option value="1000">1 second</option>
@@ -1086,8 +1089,26 @@
             <option value="10000">10 seconds</option>
           </select>
         </div>
-        <button class="icon-button" id="applySource" title="Apply telemetry port and refresh" aria-label="Apply telemetry port and refresh">↻</button>
+        <button class="icon-button" id="applySource" title="Refresh now" aria-label="Refresh now">&#8635;</button>
       </div>
+
+      <div class="status-box" id="healthBox" data-state="unknown">
+        <div id="healthText">Connecting...</div>
+        <div class="path" id="healthDetail"></div>
+      </div>
+
+      <details class="settings-box" id="settingsBox">
+        <summary>Settings</summary>
+        <div class="field"><label for="setPort">Port (restart)</label><input id="setPort" type="number" min="1" max="65535" step="1"></div>
+        <div class="field"><label for="setSampling">Sampling</label>
+          <select id="setSampling"><option value="500">0.5 s</option><option value="1000">1 s</option><option value="2000">2 s</option><option value="5000">5 s</option></select>
+        </div>
+        <label class="check"><input id="setAutostart" type="checkbox"> Start with Windows</label>
+        <label class="check"><input id="setMinimized" type="checkbox"> Start minimized</label>
+        <label class="check"><input id="setCloseToTray" type="checkbox"> Close to tray</label>
+        <button class="btn" id="saveSettings">Save</button>
+        <div class="path" id="settingsMsg"></div>
+      </details>
     </div>
   </aside>
   <main class="app">
@@ -1207,7 +1228,6 @@
       const element = dom(id);
       if (element) element.textContent = value;
     };
-    const telemetryPortInput = dom('telemetryPort');
     const refreshSelect = dom('refreshMs');
     const POWER_ASSUMPTIONS = {
       motherboardWatts: 45,
@@ -1220,18 +1240,6 @@
       sataSsdWatts: 2,
       psuEfficiency: 0.88
     };
-
-    function buildInitialTelemetryControls() {
-      const params = new URLSearchParams(window.location.search);
-      const savedPort = localStorage.getItem('librehw-port');
-      telemetryPortInput.value = params.get('port') || params.get('telemetryPort') || savedPort || '8085';
-    }
-
-    function telemetryPort() {
-      const port = Number(telemetryPortInput.value);
-      if (!Number.isInteger(port) || port < 1 || port > 65535) return 8085;
-      return port;
-    }
 
     function parseNumber(value) {
       if (value === undefined || value === null) return null;
@@ -1314,10 +1322,10 @@
           path,
           pathText: path.join(' / '),
           children: Array.isArray(node.Children) ? node.Children : [],
-          number: parseNumber(node.Value),
-          maxNumber: parseNumber(node.Max),
-          minNumber: parseNumber(node.Min),
-          unit: unitOf(node.Value),
+          number: typeof node.ValueNum === 'number' ? node.ValueNum : parseNumber(node.Value),
+          maxNumber: typeof node.MaxNum === 'number' ? node.MaxNum : parseNumber(node.Max),
+          minNumber: typeof node.MinNum === 'number' ? node.MinNum : parseNumber(node.Min),
+          unit: node.Unit || unitOf(node.Value),
           category: categorize(node)
         };
         flat.push(item);
@@ -2062,7 +2070,7 @@
     }
 
     function render() {
-      setText('hostName', state.root?.Children?.[0]?.Text || 'LibreHW telemetry');
+      setText('hostName', state.root?.Children?.[0]?.Text || 'PC Monitor');
       renderThermalSummary();
       renderHealth();
       renderCpu();
@@ -2073,12 +2081,8 @@
     }
 
     async function fetchJson() {
-      const port = telemetryPort();
-      const url = new URL('data.json', window.location.href);
-      url.searchParams.set('port', String(port));
-      const response = await fetch(url, { cache: 'no-store' });
+      const response = await fetch(new URL('data.json', window.location.href), { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      localStorage.setItem('librehw-port', String(port));
       return response.json();
     }
 
@@ -2118,10 +2122,6 @@
     }
 
     refreshSelect.addEventListener('change', restartTimer);
-    telemetryPortInput.addEventListener('change', () => {
-      localStorage.setItem('librehw-port', String(telemetryPort()));
-      refresh(true);
-    });
     dom('applySource').addEventListener('click', () => {
       refresh(true);
     });
@@ -2137,7 +2137,62 @@
       }
     });
 
-    buildInitialTelemetryControls();
+    async function pollHealth() {
+      const box = dom('healthBox');
+      try {
+        const response = await fetch(new URL('api/health', window.location.href), { cache: 'no-store' });
+        const h = await response.json();
+        box.dataset.state = h.status;
+        const labels = { ok: 'Telemetry OK', degraded: 'Telemetry degraded', error: 'Telemetry error', starting: 'Starting...' };
+        setText('healthText', labels[h.status] || h.status);
+        const parts = [`${h.sensorCount} sensors`, h.elevated ? 'admin' : 'NOT elevated', h.mode];
+        if (h.lastError) parts.push(h.lastError);
+        setText('healthDetail', parts.join(' | '));
+      } catch {
+        box.dataset.state = 'error';
+        setText('healthText', 'Server unreachable');
+        setText('healthDetail', '');
+      }
+    }
+
+    async function loadSettings() {
+      try {
+        const response = await fetch(new URL('api/settings', window.location.href), { cache: 'no-store' });
+        const cfg = await response.json();
+        dom('setPort').value = cfg.port;
+        dom('setSampling').value = String(cfg.samplingMs);
+        dom('setAutostart').checked = cfg.autostart;
+        dom('setMinimized').checked = cfg.startMinimized;
+        dom('setCloseToTray').checked = cfg.closeToTray;
+      } catch {
+        setText('settingsMsg', 'Settings unavailable');
+      }
+    }
+
+    dom('saveSettings').addEventListener('click', async () => {
+      const body = {
+        port: Number(dom('setPort').value),
+        samplingMs: Number(dom('setSampling').value),
+        autostart: dom('setAutostart').checked,
+        startMinimized: dom('setMinimized').checked,
+        closeToTray: dom('setCloseToTray').checked
+      };
+      try {
+        const response = await fetch(new URL('api/settings', window.location.href), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const result = await response.json();
+        setText('settingsMsg', response.ok ? (result.restartRequired ? 'Saved. Restart to apply the port.' : 'Saved.') : (result.error || 'Save failed'));
+      } catch {
+        setText('settingsMsg', 'Save failed');
+      }
+    });
+
+    loadSettings();
+    pollHealth();
+    setInterval(pollHealth, 3000);
     refresh(true);
   </script>
 </body>
