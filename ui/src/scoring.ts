@@ -1,6 +1,6 @@
 import { clamp } from './format';
 import type { Model } from './model';
-import type { Level, Risk, Sensor } from './types';
+import type { Level, Risk, Sensor, Volume } from './types';
 
 export function colorForPercent(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return 'var(--muted-2)';
@@ -116,14 +116,36 @@ export function scoreSensor(sensor: Sensor): Risk {
 }
 
 export interface SystemIssue {
-  sensor: Sensor;
+  title: string;
+  detail: string;
   risk: Risk;
 }
 
-/** Sensors worth watching that are currently outside their normal range, worst first. */
+export function scoreVolume(volume: Volume): Risk {
+  const used = volumeUsedPercent(volume);
+  if (used >= 95) return { score: 15, level: 'critical', reason: 'Volume almost full' };
+  if (used >= 85) return { score: 60, level: 'warn', reason: 'Volume filling up' };
+  return NORMAL;
+}
+
+export function volumeUsedPercent(volume: Volume): number {
+  return volume.totalBytes > 0 ? clamp(((volume.totalBytes - volume.freeBytes) / volume.totalBytes) * 100, 0, 100) : 0;
+}
+
+/** Everything currently outside its normal range, worst first. */
 export function systemIssues(model: Model): SystemIssue[] {
-  return watchedSensors(model)
-    .map(sensor => ({ sensor, risk: scoreSensor(sensor) }))
+  // Volumes know the real usage of RAID sets, which per-drive "Used Space" sensors cannot report.
+  const hasVolumes = model.volumes.length > 0;
+  const sensorIssues = watchedSensors(model)
+    .filter(sensor => !(hasVolumes && sensor.type === 'Load' && /used space/i.test(sensor.text)))
+    .map(sensor => ({ title: `${sensor.deviceName}: ${sensor.text}`, detail: sensor.valueText, risk: scoreSensor(sensor) }));
+  const volumeIssues = model.volumes.map(volume => ({
+    title: `${volume.id} ${volume.label}`.trim(),
+    detail: `${Math.round(volumeUsedPercent(volume))}% used`,
+    risk: scoreVolume(volume)
+  }));
+
+  return [...sensorIssues, ...volumeIssues]
     .filter(issue => issue.risk.level !== 'ok')
     .sort((a, b) => a.risk.score - b.risk.score);
 }

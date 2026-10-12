@@ -10,7 +10,7 @@ import type { Snapshot } from './types';
 import { renderCpu } from './views/cpu';
 import { renderGpu } from './views/gpu';
 import { recordNetworkHistory, renderNetwork } from './views/network';
-import { recordLoadHistory, renderOverview } from './views/overview';
+import { recordLoadHistory, renderOverview, showIssueToasts } from './views/overview';
 import { renderPower } from './views/power';
 import { renderRaw } from './views/raw';
 import { renderStorage } from './views/storage';
@@ -46,6 +46,10 @@ function onSnapshot(snapshot: Snapshot): void {
   render(model);
   settings.refreshFans();
 }
+
+el('systemRisk').addEventListener('click', () => {
+  if (model) showIssueToasts(model);
+});
 
 onPrefsChange(() => {
   if (model) render(model);

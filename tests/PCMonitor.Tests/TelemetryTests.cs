@@ -102,7 +102,7 @@ public sealed class TraySummaryTests
             Reading("/amdcpu/0/load/0", "CPU Total", "Load", 87.2),
             Reading("/amdcpu/0/temperature/1", "Core #1", "Temperature", 90),
             Reading("/amdcpu/0/temperature/0", "Core (Tctl/Tdie)", "Temperature", 76)
-        ]);
+        ], []);
 
         Assert.Equal("PC Monitor | CPU 87% 76°C", TraySummary.Build(snapshot));
     }

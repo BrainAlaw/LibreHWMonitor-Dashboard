@@ -5,8 +5,12 @@ import { h } from '../html';
 import type { History } from '../history';
 import type { Model } from '../model';
 import { bestCpuTemperature, chooseStorageTemperature, isLiveTemperature, systemIssues, systemLevel } from '../scoring';
+import { toast } from '../toast';
 import type { Sensor } from '../types';
 import { deviceRoot, groupBy } from './util';
+
+const MAX_ISSUE_TOASTS = 6;
+const ISSUE_TOAST_MS = 9000;
 
 const BADGE: Record<string, { label: string; className: string }> = {
   critical: { label: 'Critical', className: 'badge bad-text' },
@@ -43,7 +47,7 @@ function renderThermals(model: Model): void {
   const gpuJunction = model.byText('GPU Memory Junction', 'gpu', 'Temperature');
   const drive = hottestDrive(model);
 
-  setHtml('thermalSummary', h`<div class="signal-grid">
+  setHtml('thermalSummary', h`<div class="signal-grid compact">
     ${cpuThermalTile(cpuTemp)}
     ${thermalTile(gpuTemp, 'GPU Core', gpuTemp?.deviceName)}
     ${thermalTile(gpuHotspot, 'GPU Hot Spot', gpuHotspot?.deviceName)}
@@ -57,10 +61,24 @@ function renderRiskBadge(model: Model): void {
   setText('systemRisk', label);
   const badge = el('systemRisk');
   badge.className = className;
-  badge.title = systemIssues(model)
-    .slice(0, 5)
-    .map(({ sensor, risk }) => `${sensor.deviceName}: ${sensor.text} ${sensor.valueText} - ${risk.reason}`)
-    .join('\n') || 'Nothing outside its normal range';
+  badge.title = 'Click for details';
+}
+
+/** Explains the risk badge: one toast per issue, worst first. */
+export function showIssueToasts(model: Model): void {
+  const issues = systemIssues(model);
+  if (issues.length === 0) {
+    toast('All monitored sensors are within their normal range', 'ok');
+    return;
+  }
+
+  const shown = issues.slice(0, MAX_ISSUE_TOASTS);
+  for (const { title, detail, risk } of shown) {
+    toast(`${title} - ${detail} (${risk.reason})`, risk.level === 'critical' ? 'error' : 'warn', ISSUE_TOAST_MS);
+  }
+  if (issues.length > shown.length) {
+    toast(`...and ${issues.length - shown.length} more`, 'info', ISSUE_TOAST_MS);
+  }
 }
 
 function renderLoads(model: Model): void {

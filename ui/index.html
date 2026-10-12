@@ -12,7 +12,7 @@
       <span class="brand-name">PC Monitor</span>
     </div>
     <div class="topbar-right">
-      <span class="badge" id="systemRisk">Calculating</span>
+      <button class="badge badge-button" id="systemRisk" type="button" title="Click for details">Calculating</button>
       <div class="status-pill" id="statusPill" data-state="unknown">
         <span class="dot"></span>
         <span id="healthText">Connecting...</span>
@@ -88,13 +88,18 @@
       </div>
     </section>
 
-    <section class="layout">
+    <section class="layout compute">
       <div class="panel span-4" style="--accent: var(--cyan)">
         <div class="panel-header"><h2 class="panel-title">CPU</h2><span class="panel-note" id="cpuName"></span></div>
         <div class="panel-body">
           <div id="cpuSummary"></div>
           <div class="core-grid" id="coreGrid"></div>
         </div>
+      </div>
+
+      <div class="panel span-4" style="--accent: var(--magenta)">
+        <div class="panel-header"><h2 class="panel-title">GPU</h2><span class="panel-note" id="gpuName"></span></div>
+        <div class="panel-body"><div class="device-grid" id="gpuCards"></div></div>
       </div>
 
       <div class="panel span-4" style="--accent: var(--orange)">
@@ -105,10 +110,6 @@
         </div>
       </div>
 
-      <div class="panel span-4" style="--accent: var(--magenta)">
-        <div class="panel-header"><h2 class="panel-title">GPU</h2><span class="panel-note" id="gpuName"></span></div>
-        <div class="panel-body"><div class="device-grid" id="gpuCards"></div></div>
-      </div>
     </section>
 
     <section class="layout" id="storageSection">

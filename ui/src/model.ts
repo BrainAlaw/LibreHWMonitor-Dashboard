@@ -1,5 +1,5 @@
 import { formatValue } from './format';
-import type { Category, HardwareInfo, Sensor, Snapshot, SnapshotSensor } from './types';
+import type { Category, HardwareInfo, Sensor, Snapshot, SnapshotSensor, Volume } from './types';
 
 const GROUP_LABELS: Record<string, string> = {
   Temperatures: 'Temperature',
@@ -61,10 +61,12 @@ export function kilobytesPerSecond(sensor: Sensor | undefined): number {
 export class Model {
   readonly hardware: HardwareInfo[];
   readonly sensors: Sensor[];
+  readonly volumes: Volume[];
 
   constructor(snapshot: Snapshot) {
     this.hardware = snapshot.hardware;
     this.sensors = snapshot.sensors.map(toSensor);
+    this.volumes = snapshot.volumes ?? [];
   }
 
   byText(text: string, category?: Category, type?: string): Sensor | undefined {

@@ -16,3 +16,16 @@ export function formatValue(value: number | null, unit: string, decimals: number
   const number = value.toFixed(decimals);
   return unit ? `${number} ${unit}` : number;
 }
+
+/** Binary units with one decimal place, e.g. "2.8 TB". */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '--';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
+}

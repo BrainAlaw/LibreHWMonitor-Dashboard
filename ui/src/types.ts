@@ -18,10 +18,21 @@ export interface HardwareInfo {
   type: string;
 }
 
+/** A logical volume and the physical drives that back it (several drives = software RAID). */
+export interface Volume {
+  id: string;
+  label: string;
+  fileSystem: string;
+  totalBytes: number;
+  freeBytes: number;
+  disks: string[];
+}
+
 export interface Snapshot {
   timestamp: string;
   hardware: HardwareInfo[];
   sensors: SnapshotSensor[];
+  volumes: Volume[];
 }
 
 export type HealthStatus = 'starting' | 'ok' | 'degraded' | 'error';

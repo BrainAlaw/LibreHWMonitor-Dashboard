@@ -50,7 +50,7 @@ internal static class Program
         bool startHidden = settings.Current.StartMinimized ||
             args.Contains("--minimized", StringComparer.OrdinalIgnoreCase);
 
-        using TelemetryCollector collector = new(settings, static s => new LhmHardwareSource(s), elevated);
+        using TelemetryCollector collector = new(settings, static s => new LhmHardwareSource(s), elevated, volumeSource: new WmiVolumeSource());
 
         DashboardHost host;
         try

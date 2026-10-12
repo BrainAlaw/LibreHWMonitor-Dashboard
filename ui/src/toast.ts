@@ -9,8 +9,10 @@ export function toast(message: string, kind: ToastKind = 'info', durationMs = 36
   item.textContent = message;
   el('toasts').appendChild(item);
 
-  window.setTimeout(() => {
+  const dismiss = (): void => {
     item.classList.add('leaving');
     window.setTimeout(() => item.remove(), 320);
-  }, durationMs);
+  };
+  item.addEventListener('click', dismiss);
+  window.setTimeout(dismiss, durationMs);
 }

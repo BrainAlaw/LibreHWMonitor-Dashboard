@@ -32,7 +32,8 @@ internal sealed record SensorReading(
 internal sealed record TelemetrySnapshot(
     DateTimeOffset Timestamp,
     IReadOnlyList<HardwareInfo> Hardware,
-    IReadOnlyList<SensorReading> Sensors);
+    IReadOnlyList<SensorReading> Sensors,
+    IReadOnlyList<StorageVolume> Volumes);
 
 internal sealed record TelemetryHealth(
     string Status,

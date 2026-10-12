@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using PCMonitor.Infra;
 using PCMonitor.Settings;
@@ -11,10 +12,12 @@ namespace PCMonitor.Telemetry;
 internal sealed class TelemetryCollector : IDisposable
 {
     private static readonly JsonSerializerOptions SnapshotJson = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan VolumeInterval = TimeSpan.FromSeconds(10);
 
     private readonly SettingsStore settings;
     private readonly Func<AppSettings, IHardwareSource> sourceFactory;
     private readonly TimeSpan retryDelay;
+    private readonly IVolumeSource? volumeSource;
     private readonly bool elevated;
     private readonly CancellationTokenSource cancellation = new();
     private readonly object feedLock = new();
@@ -23,14 +26,19 @@ internal sealed class TelemetryCollector : IDisposable
     private PublishedSnapshot? latest;
     private TelemetryHealth health;
     private long version;
+    private IReadOnlyList<StorageVolume> volumes = [];
+    private long volumesReadAt;
+    private Task? volumeRefresh;
     private Task? loop;
 
     public TelemetryCollector(
         SettingsStore settings,
         Func<AppSettings, IHardwareSource> sourceFactory,
         bool elevated,
-        TimeSpan? retryDelay = null)
+        TimeSpan? retryDelay = null,
+        IVolumeSource? volumeSource = null)
     {
+        this.volumeSource = volumeSource;
         this.settings = settings;
         this.sourceFactory = sourceFactory;
         this.elevated = elevated;
@@ -129,7 +137,7 @@ internal sealed class TelemetryCollector : IDisposable
     {
         IReadOnlyList<RawHardware> devices = source.Poll();
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        TelemetrySnapshot snapshot = SnapshotBuilder.Build(now, devices);
+        TelemetrySnapshot snapshot = SnapshotBuilder.Build(now, devices, CurrentVolumes());
         int sensorCount = snapshot.Sensors.Count;
 
         string? problem = sensorCount == 0
@@ -144,6 +152,33 @@ internal sealed class TelemetryCollector : IDisposable
                 problem is null ? "ok" : "degraded", elevated, source.HardwareCount, sensorCount, problem, now));
             Signal();
         }
+    }
+
+    // WMI is slow compared with the sampling loop and volumes change rarely, so they refresh in the background.
+    private IReadOnlyList<StorageVolume> CurrentVolumes()
+    {
+        bool idle = volumeRefresh is null || volumeRefresh.IsCompleted;
+        bool due = volumesReadAt == 0 || Stopwatch.GetElapsedTime(volumesReadAt) > VolumeInterval;
+        if (volumeSource is not null && idle && due)
+        {
+            volumeRefresh = Task.Run(() =>
+            {
+                try
+                {
+                    Volatile.Write(ref volumes, volumeSource.Read());
+                }
+                catch (Exception error)
+                {
+                    Log.Error("Volume refresh failed", error);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref volumesReadAt, Stopwatch.GetTimestamp());
+                }
+            });
+        }
+
+        return Volatile.Read(ref volumes);
     }
 
     private void SetHealth(TelemetryHealth value)
