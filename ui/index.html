@@ -26,6 +26,11 @@
         <label class="check"><input id="setAutostart" type="checkbox"> Start with Windows</label>
         <label class="check"><input id="setMinimized" type="checkbox"> Start minimized</label>
         <label class="check"><input id="setCloseToTray" type="checkbox"> Close to tray</label>
+        <label class="check"><input id="setAllowLan" type="checkbox"> Allow LAN access (restart)</label>
+        <div id="lanBox" hidden>
+          <div id="lanUrls"></div>
+          <button class="btn" id="newToken">New token</button>
+        </div>
         <button class="btn" id="saveSettings">Save</button>
         <div class="path" id="settingsMsg"></div>
       </details>

@@ -108,6 +108,7 @@ public sealed class DashboardHostTests : IAsyncLifetime
     private DashboardHost host = null!;
     private HttpClient client = null!;
     private bool autostart;
+    private bool firewallOpen;
 
     public async Task InitializeAsync()
     {
@@ -119,7 +120,10 @@ public sealed class DashboardHostTests : IAsyncLifetime
         collector.Start();
         await collector.WaitForChangeAsync(0, TimeSpan.FromSeconds(5), CancellationToken.None);
 
-        host = await DashboardHost.StartAsync(settings, collector, enable => { autostart = enable; return Task.FromResult(true); }, () => autostart);
+        host = await DashboardHost.StartAsync(settings, collector, new SystemActions(
+            enable => { autostart = enable; return Task.FromResult(true); },
+            () => autostart,
+            enable => { firewallOpen = enable; return Task.FromResult(true); }));
         client = new HttpClient { BaseAddress = new Uri(host.Url) };
     }
 
@@ -200,6 +204,27 @@ public sealed class DashboardHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task EnablingLanGeneratesATokenOpensTheFirewallAndRequiresARestart()
+    {
+        using HttpRequestMessage request = new(HttpMethod.Put, "/api/settings")
+        {
+            Content = new StringContent("""{"allowLan":true}""", Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("Origin", $"http://127.0.0.1:{host.Port}");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using JsonDocument body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(body.RootElement.GetProperty("restartRequired").GetBoolean());
+        Assert.True(body.RootElement.GetProperty("firewallOk").GetBoolean());
+        Assert.True(firewallOpen);
+        using JsonDocument view = JsonDocument.Parse(await client.GetStringAsync("/api/settings"));
+        Assert.True(view.RootElement.GetProperty("allowLan").GetBoolean());
+        Assert.Equal(JsonValueKind.Array, view.RootElement.GetProperty("lanUrls").ValueKind);
+    }
+
+    [Fact]
     public async Task RejectsOutOfRangeSettings()
     {
         using HttpRequestMessage request = new(HttpMethod.Put, "/api/settings")
@@ -230,7 +255,8 @@ public sealed class DashboardHostTests : IAsyncLifetime
     {
         SettingsStore settings = new(Path.Combine(directory, "other.json"), portOverride: host.Port.ToString());
 
-        await using DashboardHost second = await DashboardHost.StartAsync(settings, collector, _ => Task.FromResult(true), () => false);
+        await using DashboardHost second = await DashboardHost.StartAsync(
+            settings, collector, new SystemActions(_ => Task.FromResult(true), () => false, _ => Task.FromResult(true)));
 
         Assert.Equal(host.Port + 1, second.Port);
     }

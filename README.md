@@ -44,6 +44,16 @@ The `PORT` environment variable overrides the port for that run only.
 
 Logs: `%APPDATA%\PCMonitor\logs\` (7 days). UI override for development: put a built dashboard (`index.html` + `assets/`) in `%APPDATA%\PCMonitor\ui\`.
 
+## LAN access
+
+Off by default. Enable **Allow LAN access** in Settings (or  in settings.json) and restart.
+
+- The server then listens on all interfaces, and PC Monitor adds a Windows Firewall rule (Private profile only, program-based).
+- Only private-network clients (10.x, 172.16-31.x, 192.168.x, 169.254.x) are served; anything else gets 403.
+- Every LAN client needs the access token. Open the link from Settings (or tray: Copy LAN link), e.g. ; the token becomes an HttpOnly cookie and disappears from the address bar.
+- LAN viewers get the dashboard only. Settings are available on the PC itself. **New token** invalidates every existing link.
+- Traffic is plain HTTP: use it on trusted networks only. The token is stored in .
+
 ## HTTP API
 
 | Endpoint | Description |
@@ -53,7 +63,7 @@ Logs: `%APPDATA%\PCMonitor\logs\` (7 days). UI override for development: put a b
 | `GET /api/health` | `status` (`starting`/`ok`/`degraded`/`error`), `elevated`, `sensorCount`, `hardwareCount`, `lastError`, `lastUpdate`. |
 | `GET/PUT /api/settings` | Read or update port, samplingMs, startMinimized, closeToTray, autostart (same-origin JSON only). |
 
-The server binds to loopback only and rejects requests whose `Host` is not `127.0.0.1:<port>` / `localhost:<port>`.
+By default the server binds to loopback only and rejects requests whose `Host` is not `127.0.0.1:<port>` / `localhost:<port>` (anti DNS-rebinding). See LAN access above for the optional network mode.
 
 ## Development
 

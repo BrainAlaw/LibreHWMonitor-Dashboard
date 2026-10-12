@@ -13,9 +13,16 @@ using PCMonitor.Telemetry;
 
 namespace PCMonitor.Server;
 
-/// <summary>Loopback-only Kestrel host serving the embedded dashboard and the telemetry API.</summary>
+/// <summary>OS-level side effects the API can trigger, injected so the host stays testable.</summary>
+internal sealed record SystemActions(
+    Func<bool, Task<bool>> SetAutostart,
+    Func<bool> IsAutostartEnabled,
+    Func<bool, Task<bool>> SetLanFirewall);
+
+/// <summary>Kestrel host serving the embedded dashboard and the telemetry API (loopback, optionally LAN).</summary>
 internal sealed class DashboardHost : IAsyncDisposable
 {
+    internal const string TokenCookie = "pcmonitor_token";
     private const int PortFallbackAttempts = 20;
 
     private readonly WebApplication app;
@@ -30,18 +37,14 @@ internal sealed class DashboardHost : IAsyncDisposable
     public string Url => $"http://127.0.0.1:{Port}/";
 
     /// <summary>Starts on the requested port, or the next free one when it is taken.</summary>
-    public static async Task<DashboardHost> StartAsync(
-        SettingsStore settings,
-        TelemetryCollector collector,
-        Func<bool, Task<bool>> setAutostart,
-        Func<bool> isAutostartEnabled)
+    public static async Task<DashboardHost> StartAsync(SettingsStore settings, TelemetryCollector collector, SystemActions actions)
     {
         int requested = settings.ListenPort;
         Exception? lastError = null;
 
         for (int candidate = requested; candidate < Math.Min(requested + PortFallbackAttempts, 65536); candidate++)
         {
-            WebApplication app = Build(candidate, settings, collector, setAutostart, isAutostartEnabled);
+            WebApplication app = Build(candidate, settings, collector, actions);
             try
             {
                 await app.StartAsync();
@@ -50,6 +53,7 @@ internal sealed class DashboardHost : IAsyncDisposable
                     Log.Info($"Port {requested} was busy, using {candidate}");
                 }
 
+                Log.Info($"Dashboard listening on port {candidate}, LAN access {(settings.Current.AllowLan ? "ON" : "off")}");
                 return new DashboardHost(app, candidate);
             }
             catch (IOException error)
@@ -78,13 +82,11 @@ internal sealed class DashboardHost : IAsyncDisposable
         await app.DisposeAsync();
     }
 
-    private static WebApplication Build(
-        int port,
-        SettingsStore settings,
-        TelemetryCollector collector,
-        Func<bool, Task<bool>> setAutostart,
-        Func<bool> isAutostartEnabled)
+    private static WebApplication Build(int port, SettingsStore settings, TelemetryCollector collector, SystemActions actions)
     {
+        // The bind address is fixed for the lifetime of the host; changing AllowLan needs a restart.
+        IPAddress bindAddress = settings.Current.AllowLan ? IPAddress.Any : IPAddress.Loopback;
+
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
             ContentRootPath = AppContext.BaseDirectory
@@ -93,11 +95,11 @@ internal sealed class DashboardHost : IAsyncDisposable
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.AddServerHeader = false;
-            options.Listen(IPAddress.Loopback, port);
+            options.Listen(bindAddress, port);
         });
 
         WebApplication app = builder.Build();
-        app.Use(LoopbackOnly(port));
+        app.Use(Authorize(port, settings));
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = CreateUiFileProvider(),
@@ -108,26 +110,66 @@ internal sealed class DashboardHost : IAsyncDisposable
             }
         });
 
-        Api.Map(app, port, settings, collector, setAutostart, isAutostartEnabled);
+        Api.Map(app, port, settings, collector, actions);
         app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = CreateUiFileProvider() });
         return app;
     }
 
-    // Rejects DNS-rebinding style requests: only loopback host names with our port are served.
-    private static Func<HttpContext, RequestDelegate, Task> LoopbackOnly(int port) => (context, next) =>
+    private static Func<HttpContext, RequestDelegate, Task> Authorize(int port, SettingsStore settings) => async (context, next) =>
     {
-        HostString host = context.Request.Host;
-        bool allowed = host.Port == port &&
-            (host.Host.Equals("127.0.0.1", StringComparison.Ordinal) ||
-             host.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));
-        if (allowed)
+        AppSettings current = settings.Current;
+        HttpRequest request = context.Request;
+        string? queryToken = request.Query["token"];
+        string? presented = queryToken ?? request.Cookies[TokenCookie] ?? BearerToken(request);
+
+        AccessDecision decision = AccessPolicy.Evaluate(
+            request.Host.Host,
+            request.Host.Port,
+            context.Connection.RemoteIpAddress,
+            port,
+            current.AllowLan,
+            Environment.MachineName,
+            current.AccessToken,
+            presented);
+
+        switch (decision)
         {
-            return next(context);
+            case AccessDecision.ForbiddenHost:
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            case AccessDecision.Unauthorized:
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "text/plain; charset=utf-8";
+                await context.Response.WriteAsync("Access token required. Open the full link shown in PC Monitor (Settings > LAN access).");
+                return;
         }
 
-        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        return Task.CompletedTask;
+        // A valid token in the URL becomes a cookie, then the token is dropped from the address bar.
+        if (queryToken is not null && current.AccessToken is not null && AccessPolicy.TokensMatch(current.AccessToken, queryToken))
+        {
+            context.Response.Cookies.Append(TokenCookie, queryToken, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Strict,
+                Path = "/",
+                MaxAge = TimeSpan.FromDays(365)
+            });
+
+            if (HttpMethods.IsGet(request.Method))
+            {
+                context.Response.Redirect(request.Path.HasValue ? request.Path.Value! : "/");
+                return;
+            }
+        }
+
+        await next(context);
     };
+
+    private static string? BearerToken(HttpRequest request)
+    {
+        string? header = request.Headers.Authorization;
+        return header is not null && header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim() : null;
+    }
 
     // A user-provided %APPDATA%\PCMonitor\ui folder wins over the embedded build, for UI development.
     private static IFileProvider CreateUiFileProvider()

@@ -55,11 +55,7 @@ internal static class Program
         DashboardHost host;
         try
         {
-            host = DashboardHost.StartAsync(
-                settings,
-                collector,
-                static enable => Task.Run(() => enable ? Autostart.Enable(Environment.ProcessPath ?? string.Empty) : Autostart.Disable()),
-                Autostart.IsEnabled).GetAwaiter().GetResult();
+            host = DashboardHost.StartAsync(settings, collector, CreateSystemActions()).GetAwaiter().GetResult();
         }
         catch (Exception error)
         {
@@ -87,6 +83,15 @@ internal static class Program
         {
             host.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
+    }
+
+    private static SystemActions CreateSystemActions()
+    {
+        static string ExePath() => Environment.ProcessPath ?? string.Empty;
+        return new SystemActions(
+            static enable => Task.Run(() => enable ? Autostart.Enable(ExePath()) : Autostart.Disable()),
+            Autostart.IsEnabled,
+            static enable => Task.Run(() => Firewall.Apply(enable, ExePath())));
     }
 
     private static bool IsWebViewAvailable()

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security;
 using System.Text;
 
@@ -61,36 +60,6 @@ internal static class Autostart
 
     public static bool Disable() => !IsEnabled() || Run("/Delete", "/TN", TaskName, "/F").ExitCode == 0;
 
-    private static (int ExitCode, string Output) Run(params string[] arguments)
-    {
-        ProcessStartInfo startInfo = new("schtasks.exe")
-        {
-            CreateNoWindow = true,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        try
-        {
-            using Process process = Process.Start(startInfo)!;
-            string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
-            process.WaitForExit(10_000);
-            if (process.ExitCode != 0)
-            {
-                Log.Info($"schtasks {string.Join(' ', arguments)} -> {process.ExitCode}: {output.Trim()}");
-            }
-
-            return (process.ExitCode, output);
-        }
-        catch (Exception error)
-        {
-            Log.Error("schtasks failed", error);
-            return (-1, error.Message);
-        }
-    }
+    private static (int ExitCode, string Output) Run(params string[] arguments) =>
+        ProcessRunner.Run("schtasks.exe", arguments);
 }

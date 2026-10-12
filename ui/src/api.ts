@@ -25,15 +25,26 @@ export async function getSettings(): Promise<SettingsView> {
 export interface SaveResult {
   ok: boolean;
   restartRequired: boolean;
+  firewallOk: boolean;
   error?: string;
 }
 
-export async function saveSettings(settings: SettingsView): Promise<SaveResult> {
+export interface SettingsUpdate {
+  port: number;
+  samplingMs: number;
+  autostart: boolean;
+  startMinimized: boolean;
+  closeToTray: boolean;
+  allowLan: boolean;
+  regenerateToken?: boolean;
+}
+
+export async function saveSettings(update: SettingsUpdate): Promise<SaveResult> {
   const response = await fetch(new URL('api/settings', window.location.href), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings)
+    body: JSON.stringify(update)
   });
-  const body = (await response.json()) as { restartRequired?: boolean; error?: string };
-  return { ok: response.ok, restartRequired: body.restartRequired === true, error: body.error };
+  const body = (await response.json()) as { restartRequired?: boolean; firewallOk?: boolean; error?: string };
+  return { ok: response.ok, restartRequired: body.restartRequired === true, firewallOk: body.firewallOk !== false, error: body.error };
 }

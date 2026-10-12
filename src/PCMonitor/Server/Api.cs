@@ -1,9 +1,11 @@
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
+using PCMonitor.Infra;
 using PCMonitor.Settings;
 using PCMonitor.Telemetry;
 
@@ -20,8 +22,7 @@ internal static class Api
         int port,
         SettingsStore settings,
         TelemetryCollector collector,
-        Func<bool, Task<bool>> setAutostart,
-        Func<bool> isAutostartEnabled)
+        SystemActions actions)
     {
         routes.MapGet("/api/snapshot", (HttpContext context) =>
         {
@@ -36,18 +37,29 @@ internal static class Api
 
         routes.MapGet("/api/stream", (HttpContext context) => StreamAsync(context, collector, port));
 
-        routes.MapGet("/api/settings", () => Results.Json(new
+        routes.MapGet("/api/settings", (HttpContext context) =>
         {
-            port = settings.Current.Port,
-            samplingMs = settings.Current.SamplingMs,
-            startMinimized = settings.Current.StartMinimized,
-            closeToTray = settings.Current.CloseToTray,
-            autostart = isAutostartEnabled()
-        }, Json));
+            if (!IsLoopbackClient(context))
+            {
+                return Results.Json(new { error = "Settings are only available on this computer" }, Json, statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            AppSettings current = settings.Current;
+            return Results.Json(new
+            {
+                port = current.Port,
+                samplingMs = current.SamplingMs,
+                startMinimized = current.StartMinimized,
+                closeToTray = current.CloseToTray,
+                autostart = actions.IsAutostartEnabled(),
+                allowLan = current.AllowLan,
+                lanUrls = current.AllowLan ? LanAddresses.Enumerate(port, current.AccessToken) : []
+            }, Json);
+        });
 
         routes.MapPut("/api/settings", async (HttpContext context) =>
         {
-            if (!IsSameOrigin(context.Request, port) ||
+            if (!IsLoopbackClient(context) || !IsSameOrigin(context.Request, port) ||
                 context.Request.ContentType?.StartsWith("application/json", StringComparison.OrdinalIgnoreCase) != true)
             {
                 return Results.Json(new { error = "Cross-origin or non-JSON request rejected" }, Json, statusCode: StatusCodes.Status403Forbidden);
@@ -83,21 +95,28 @@ internal static class Api
                 return Results.Json(new { error = "Port or sampling interval out of range" }, Json, statusCode: StatusCodes.Status400BadRequest);
             }
 
-            bool restartRequired = patch.Port.HasValue && patch.Port.Value != settings.ListenPort;
+            bool lanChanged = patch.AllowLan.HasValue && patch.AllowLan.Value != settings.Current.AllowLan;
+            bool restartRequired = lanChanged || (patch.Port.HasValue && patch.Port.Value != settings.ListenPort);
             settings.Update(s =>
             {
                 s.Port = patch.Port ?? s.Port;
                 s.SamplingMs = patch.SamplingMs ?? s.SamplingMs;
                 s.StartMinimized = patch.StartMinimized ?? s.StartMinimized;
                 s.CloseToTray = patch.CloseToTray ?? s.CloseToTray;
+                s.AllowLan = patch.AllowLan ?? s.AllowLan;
+                if (patch.RegenerateToken == true)
+                {
+                    s.AccessToken = AccessPolicy.NewToken();
+                }
             });
 
-            if (patch.Autostart is bool autostart && !await setAutostart(autostart))
+            if (patch.Autostart is bool autostart && !await actions.SetAutostart(autostart))
             {
                 return Results.Json(new { error = "Autostart task could not be changed" }, Json, statusCode: StatusCodes.Status500InternalServerError);
             }
 
-            return Results.Json(new { ok = true, restartRequired }, Json);
+            bool firewallOk = !lanChanged || await actions.SetLanFirewall(settings.Current.AllowLan);
+            return Results.Json(new { ok = true, restartRequired, firewallOk }, Json);
         });
     }
 
@@ -172,6 +191,9 @@ internal static class Api
         };
     }
 
+    private static bool IsLoopbackClient(HttpContext context) =>
+        context.Connection.RemoteIpAddress is { } remote && IPAddress.IsLoopback(remote.IsIPv4MappedToIPv6 ? remote.MapToIPv4() : remote);
+
     private static bool IsSameOrigin(HttpRequest request, int port)
     {
         string? origin = request.Headers.Origin;
@@ -185,5 +207,7 @@ internal static class Api
         int? SamplingMs,
         bool? StartMinimized,
         bool? CloseToTray,
-        bool? Autostart);
+        bool? Autostart,
+        bool? AllowLan,
+        bool? RegenerateToken);
 }

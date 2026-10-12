@@ -9,15 +9,18 @@ internal sealed class TrayContext : ApplicationContext
 {
     private readonly TelemetryCollector collector;
     private readonly string dashboardUrl;
+    private readonly SettingsStore settings;
     private readonly NotifyIcon notifyIcon;
     private readonly DashboardForm form;
     private readonly System.Windows.Forms.Timer tooltipTimer = new() { Interval = 2000 };
     private readonly ToolStripMenuItem autostartItem = new("Start with Windows") { CheckOnClick = false };
+    private readonly ToolStripMenuItem lanItem = new("Copy LAN link");
     private bool exiting;
 
     public TrayContext(string dashboardUrl, TelemetryCollector collector, SettingsStore settings, bool startHidden)
     {
         this.dashboardUrl = dashboardUrl;
+        this.settings = settings;
         this.collector = collector;
 
         Icon? icon = null;
@@ -75,7 +78,12 @@ internal sealed class TrayContext : ApplicationContext
     private ContextMenuStrip BuildMenu()
     {
         ContextMenuStrip menu = new();
-        menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsEnabled();
+        menu.Opening += (_, _) =>
+        {
+            autostartItem.Checked = Autostart.IsEnabled();
+            lanItem.Enabled = settings.Current.AllowLan;
+        };
+        lanItem.Click += (_, _) => CopyLanLink();
         autostartItem.Click += (_, _) => ToggleAutostart();
 
         menu.Items.Add("Open", null, (_, _) => ShowDashboard());
@@ -85,6 +93,7 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(autostartItem);
         menu.Items.Add("Open in browser", null, (_, _) => OpenShell(dashboardUrl));
+        menu.Items.Add(lanItem);
         menu.Items.Add("Open logs folder", null, (_, _) =>
         {
             Directory.CreateDirectory(AppPaths.LogDirectory);
@@ -98,6 +107,19 @@ internal sealed class TrayContext : ApplicationContext
     private void UpdateTooltip()
     {
         notifyIcon.Text = TraySummary.Build(collector.Latest?.Snapshot);
+    }
+
+    private void CopyLanLink()
+    {
+        LanUrl? first = LanAddresses.Enumerate(new Uri(dashboardUrl).Port, settings.Current.AccessToken).FirstOrDefault();
+        if (first is null)
+        {
+            notifyIcon.ShowBalloonTip(2000, "PC Monitor", "No private network address found.", ToolTipIcon.Warning);
+            return;
+        }
+
+        Clipboard.SetText(first.Url);
+        notifyIcon.ShowBalloonTip(2000, "PC Monitor", "LAN link copied (includes the access token).", ToolTipIcon.Info);
     }
 
     private void ResetTelemetry()

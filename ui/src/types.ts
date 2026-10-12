@@ -44,6 +44,13 @@ export interface SettingsView {
   startMinimized: boolean;
   closeToTray: boolean;
   autostart: boolean;
+  allowLan: boolean;
+  lanUrls: LanUrl[];
+}
+
+export interface LanUrl {
+  name: string;
+  url: string;
 }
 
 export type Category = 'gpu' | 'cpu' | 'memory' | 'storage' | 'network' | 'thermal' | 'other';

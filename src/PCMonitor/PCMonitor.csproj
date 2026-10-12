@@ -43,7 +43,8 @@
     <Exec Command="npm ci" WorkingDirectory="$(UiDirectory)" Condition="!Exists('$(UiDirectory)node_modules')" />
     <Exec Command="npm run build" WorkingDirectory="$(UiDirectory)" />
     <ItemGroup>
-      <EmbeddedResource Include="wwwroot\**" Exclude="@(EmbeddedResource)" />
+      <EmbeddedResource Remove="wwwroot\**" />
+      <EmbeddedResource Include="wwwroot\**" />
     </ItemGroup>
   </Target>
 </Project>

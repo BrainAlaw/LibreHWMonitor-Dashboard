@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PCMonitor.Infra;
+using PCMonitor.Server;
 
 namespace PCMonitor.Settings;
 
@@ -13,6 +14,8 @@ internal sealed class AppSettings
     public int SamplingMs { get; set; } = 1000;
     public bool StartMinimized { get; set; }
     public bool CloseToTray { get; set; } = true;
+    public bool AllowLan { get; set; }
+    public string? AccessToken { get; set; }
     public bool EnableCpu { get; set; } = true;
     public bool EnableGpu { get; set; } = true;
     public bool EnableMemory { get; set; } = true;
@@ -80,6 +83,11 @@ internal sealed class SettingsStore
         {
             mutate(current);
             current.Normalize();
+            if (current.AllowLan && string.IsNullOrEmpty(current.AccessToken))
+            {
+                current.AccessToken = AccessPolicy.NewToken();
+            }
+
             Save();
         }
     }
