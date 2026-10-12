@@ -9,7 +9,7 @@ const defaultTelemetryPort = Number(process.env.LIBREHW_PORT || 8085);
 const root = __dirname;
 
 const DISCOVERY_TIMEOUT_MS = 450;
-const DISCOVERY_CONCURRENCY = 48;
+const DISCOVERY_CONCURRENCY = process.env.LIBREHW_SCAN_SUBNETS === '1' ? 48 : 8;
 const DISCOVERY_CACHE_MS = 5 * 60 * 1000;
 
 const discoveryCache = new Map();
@@ -114,6 +114,7 @@ function isPrivateIpv4(address) {
 
 function discoveryCandidates(port) {
   const hosts = new Set(['127.0.0.1', 'localhost']);
+  const scanSubnets = process.env.LIBREHW_SCAN_SUBNETS === '1';
 
   Object.values(os.networkInterfaces()).flat().forEach(details => {
     if (!details || details.family !== 'IPv4' || !isPrivateIpv4(details.address)) return;
@@ -124,8 +125,10 @@ function discoveryCandidates(port) {
     hosts.add(details.address);
     hosts.add(intToIpv4(subnetBase + 1));
 
-    for (let host = 1; host <= 254; host += 1) {
-      hosts.add(intToIpv4(subnetBase + host));
+    if (scanSubnets) {
+      for (let host = 1; host <= 254; host += 1) {
+        hosts.add(intToIpv4(subnetBase + host));
+      }
     }
   });
 

@@ -35,6 +35,7 @@
       background: var(--page);
       color: var(--text);
       font-family: var(--font);
+      overflow-x: hidden;
     }
 
     body {
@@ -48,7 +49,7 @@
     .app {
       display: grid;
       grid-template-columns: 1fr;
-      min-height: 100vh;
+      min-height: 0;
       width: 100%;
       max-width: 2400px;
       margin: 0 auto;
@@ -64,22 +65,24 @@
       margin: 0 auto;
       display: flex;
       align-items: center;
-      padding: 4px 12px;
-    }
-
-    .source-box {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 3px 6px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      border-radius: var(--radius);
+      gap: 10px;
+      padding: 6px 12px;
+      min-width: 0;
     }
 
     .brand {
-      grid-column: 1 / 4;
+      min-width: 0;
+      flex: 1 1 260px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      color: #f4f7fb;
+      font-size: clamp(16px, 1.5vw, 22px);
+      line-height: 1.05;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .fan-hide {
@@ -112,19 +115,25 @@
     }
 
     .source-box {
+      margin-left: auto;
       display: flex;
       align-items: center;
+      justify-content: flex-end;
+      flex: 0 1 auto;
+      flex-wrap: wrap;
       gap: 6px;
       padding: 3px 6px;
       border: 1px solid var(--line);
       background: var(--panel);
       border-radius: var(--radius);
+      min-width: min(100%, 420px);
     }
 
     .field {
       display: flex;
       align-items: center;
       gap: 4px;
+      min-width: 0;
     }
 
     label {
@@ -142,7 +151,11 @@
       outline: none;
       height: 26px;
       font-size: 12px;
+      min-width: 0;
     }
+
+    #telemetryPort { width: 86px; }
+    #refreshMs { width: 118px; }
 
     input:focus, select:focus {
       border-color: var(--blue);
@@ -153,7 +166,7 @@
       display: grid;
       gap: 10px;
       min-width: 0;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .layout {
@@ -161,13 +174,17 @@
       grid-template-columns: repeat(12, minmax(0, 1fr));
       gap: 10px;
       min-width: 0;
+      align-items: stretch;
     }
 
     .panel {
+      display: flex;
+      flex-direction: column;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       min-width: 0;
+      height: 100%;
     }
 
     .panel-header {
@@ -195,13 +212,24 @@
     .panel-body {
       padding: 10px;
       min-width: 0;
+      flex: 1;
+    }
+
+    .panel-body.is-flex {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
     }
 
     .signal-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr));
       gap: 8px;
       min-width: 0;
+    }
+
+    .signal-grid.compact {
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
     }
 
     .signal {
@@ -376,9 +404,27 @@
     .span-3 { grid-column: span 3; }
     .span-2 { grid-column: span 2; }
 
+    .adaptive-panel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .layout[data-section="compute"] {
+      grid-auto-rows: 1fr;
+    }
+
+    .layout[data-section="compute"] .panel-body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .layout[data-section="compute"] .device-card {
+      height: 100%;
+    }
+
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
       gap: 10px;
     }
 
@@ -555,10 +601,16 @@
 
     .device-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
       gap: 8px;
       min-width: 0;
       align-items: start;
+    }
+
+    .device-grid.gpu-grid {
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+      align-items: stretch;
+      flex: 1;
     }
 
     .device-card {
@@ -573,7 +625,7 @@
     }
 
     .device-card .signal-grid {
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
     }
 
     .device-card .signal,
@@ -629,7 +681,7 @@
 
     .mini-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 92px), 1fr));
       gap: 6px;
       min-width: 0;
     }
@@ -687,7 +739,7 @@
 
     .network-card {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(140px, 220px);
+      grid-template-columns: minmax(160px, .85fr) minmax(220px, 1.15fr);
       gap: 10px;
       min-width: 0;
     }
@@ -754,7 +806,7 @@
 
     .core-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(clamp(54px, 7vw, 82px), 1fr));
       gap: 8px;
       margin-top: 8px;
     }
@@ -809,19 +861,23 @@
 
     .cooling-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
       gap: 8px;
       min-width: 0;
     }
 
+    .signal-grid + .cooling-grid {
+      margin-top: 8px;
+    }
+
     .fan-card {
       display: grid;
-      grid-template-columns: 54px minmax(0, 1fr);
+      grid-template-columns: 48px minmax(0, 1fr);
       align-items: center;
-      gap: 10px;
+      gap: 9px;
       min-width: 0;
-      min-height: 88px;
-      padding: 12px;
+      min-height: 78px;
+      padding: 10px;
       border: 1px solid var(--line-soft);
       border-radius: var(--radius);
       background:
@@ -833,7 +889,7 @@
     .fan-avatar {
       --fan-color: var(--cyan);
       position: relative;
-      width: 54px;
+      width: 48px;
       aspect-ratio: 1;
       border-radius: 50%;
       border: 1px solid color-mix(in srgb, var(--fan-color) 55%, var(--line));
@@ -848,7 +904,7 @@
     .fan-avatar::after {
       content: "";
       position: absolute;
-      inset: 20px;
+      inset: 18px;
       border-radius: 50%;
       background: var(--fan-color);
       box-shadow: 0 0 0 4px rgba(15,17,21,.84);
@@ -891,12 +947,13 @@
       overflow: auto;
       border: 1px solid var(--line-soft);
       border-radius: var(--radius);
+      max-height: clamp(220px, 24vh, 340px);
     }
 
     table {
       width: 100%;
-      min-width: 920px;
       border-collapse: collapse;
+      table-layout: fixed;
     }
 
     th, td {
@@ -905,6 +962,9 @@
       text-align: left;
       vertical-align: middle;
       font-size: 13px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     th {
@@ -944,9 +1004,26 @@
 
     @media (max-width: 1260px) {
       .span-8, .span-7, .span-6, .span-5, .span-4, .span-3 { grid-column: span 12; }
+      .network-card { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 760px) {
+      .sidebar-inner {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .source-box {
+        margin-left: 0;
+        width: 100%;
+        justify-content: stretch;
+      }
+      .field {
+        flex: 1 1 150px;
+      }
+      .field input,
+      .field select {
+        width: 100%;
+      }
       .content { padding: 12px; }
       .kpi-grid { grid-template-columns: 1fr; }
       .split, .score { grid-template-columns: 1fr; }
@@ -957,6 +1034,34 @@
       .signal-grid { grid-template-columns: 1fr; }
       .signal { grid-template-columns: 64px minmax(0, 1fr); }
       .dial { width: 60px; }
+      .core-grid {
+        grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
+      }
+      table, thead, tbody, tr, th, td {
+        display: block;
+        width: 100%;
+      }
+      thead {
+        display: none;
+      }
+      tr {
+        border-bottom: 1px solid var(--line-soft);
+        padding: 8px;
+      }
+      td {
+        display: grid;
+        grid-template-columns: 90px minmax(0, 1fr);
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 0;
+      }
+      td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+      }
     }
   </style>
 </head>
@@ -1039,18 +1144,18 @@
             <span class="badge" id="powerFanCount">loose model</span>
           </div>
           <div class="panel-body">
-            <div class="signal-grid" style="grid-template-columns:repeat(2,1fr)" id="powerSummary"></div>
-            <div class="cooling-grid" id="powerCoolingGrid" style="margin-top:6px"></div>
+            <div class="signal-grid compact" id="powerSummary"></div>
+            <div class="cooling-grid" id="powerCoolingGrid"></div>
           </div>
         </div>
 
-        <div class="panel span-4" style="display:flex;flex-direction:column">
+        <div class="panel span-4 adaptive-panel">
           <div class="panel-header">
             <h2 class="panel-title">GPU</h2>
             <span class="badge" id="gpuName">GPU</span>
           </div>
-          <div class="panel-body" style="display:flex;flex-direction:column;flex:1">
-            <div class="device-grid" id="gpuCards" style="grid-template-columns:repeat(3,1fr);align-items:stretch;flex:1"></div>
+          <div class="panel-body is-flex">
+            <div class="device-grid gpu-grid" id="gpuCards"></div>
           </div>
         </div>
       </section>
@@ -1305,6 +1410,43 @@
       return sensor?.type === 'Temperature' && !isStorageTemperatureThreshold(sensor);
     }
 
+    function bestCpuTemperature() {
+      const preferred = byText('Core (Tctl/Tdie)', 'cpu', 'Temperature');
+      if (preferred && preferred.number > 0) return preferred;
+
+      return state.sensors
+        .filter(s => s.category === 'cpu' && isLiveTemperature(s) && s.number > 0)
+        .sort((a, b) => {
+          const rank = sensor => {
+            const text = sensor.text.toLowerCase();
+            if (text.includes('tctl') || text.includes('tdie')) return 0;
+            if (text.includes('package')) return 1;
+            if (text.includes('core')) return 2;
+            return 3;
+          };
+          return rank(a) - rank(b) || (b.number || 0) - (a.number || 0);
+        })[0] || null;
+    }
+
+    function bestCpuPackagePower() {
+      const measured = byText('Package', 'cpu', 'Power');
+      if (measured && measured.number > 0) return measured;
+
+      const cpuLoad = byText('CPU Total', 'cpu', 'Load');
+      if (!cpuLoad || cpuLoad.number === null) return measured;
+
+      const estimate = 35 + (Math.max(0, Math.min(100, cpuLoad.number)) / 100) * 80;
+      return {
+        ...measured,
+        text: 'Package Estimate',
+        displayName: 'Power: Package Estimate',
+        value: `~${estimate.toFixed(0)} W`,
+        number: estimate,
+        pathText: measured?.pathText || cpuLoad.pathText,
+        deviceName: measured?.deviceName || cpuLoad.deviceName
+      };
+    }
+
     function scoreSensor(sensor) {
       if (!sensor) return { score: 100, level: 'ok', reason: 'No data' };
       const n = sensor.number;
@@ -1344,7 +1486,7 @@
     }
 
     function renderThermalSummary() {
-      const cpuTemp = byText('Core (Tctl/Tdie)', 'cpu', 'Temperature');
+      const cpuTemp = bestCpuTemperature();
       const gpuTemp = byText('GPU Core', 'gpu', 'Temperature');
       const gpuHotspot = byText('GPU Hot Spot', 'gpu', 'Temperature');
       const gpuJunction = byText('GPU Memory Junction', 'gpu', 'Temperature');
@@ -1356,7 +1498,7 @@
 
       dom('thermalSummary').innerHTML = `
         <div class="signal-grid">
-          ${thermalTile(cpuTemp, 'CPU Tctl/Tdie', cpuTemp?.deviceName)}
+          ${thermalTile(cpuTemp, 'CPU Tctl/Tdie', cpuTemp?.deviceName) || unavailableTile('CPU Tctl/Tdie', 'Run elevated or use external LibreHW if required', 'TEMP')}
           ${thermalTile(gpuTemp, 'GPU Core', gpuTemp?.deviceName)}
           ${thermalTile(gpuHotspot, 'GPU Hot Spot', gpuHotspot?.deviceName)}
           ${thermalTile(gpuJunction, 'GPU Memory', gpuJunction?.deviceName)}
@@ -1496,6 +1638,19 @@
       `;
     }
 
+    function unavailableTile(label, sub, type = 'SENSOR') {
+      return `
+        <article class="metric-tile" style="border-color:var(--line-soft)">
+          <div class="metric-title">
+            <strong>${html(label)}</strong>
+            <span class="metric-type">${html(type)}</span>
+          </div>
+          <div class="metric-value" style="color:var(--muted)">Unavailable</div>
+          <div class="metric-sub">${html(sub || 'No usable sensor reported')}</div>
+        </article>
+      `;
+    }
+
     function numericTile(sensor, label, sub, type = 'VALUE') {
       if (!sensor) return '';
       return `
@@ -1595,13 +1750,13 @@
       const cpuDevice = state.flat.find(s => s.path.length <= 3 && /ryzen|intel|amd|cpu/i.test(s.text));
       dom('cpuName').textContent = cpuDevice?.text || 'CPU';
       const cpuLoad = byText('CPU Total', 'cpu', 'Load');
-      const cpuTemp = byText('Core (Tctl/Tdie)', 'cpu', 'Temperature');
-      const cpuPower = byText('Package', 'cpu', 'Power');
+      const cpuTemp = bestCpuTemperature();
+      const cpuPower = bestCpuPackagePower();
       const cpuVoltage = byContains(['Core', 'SVI2'], 'cpu', 'Voltage');
       dom('cpuSummary').innerHTML = `
-        <div class="signal-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="signal-grid compact">
           ${signal(cpuLoad, 'CPU Total', 'processor utilisation', colorForPercent)}
-          ${thermalTile(cpuTemp, 'CPU Tctl/Tdie', cpuTemp?.deviceName)}
+          ${thermalTile(cpuTemp, 'CPU Tctl/Tdie', cpuTemp?.deviceName) || unavailableTile('CPU Tctl/Tdie', 'Run elevated or use external LibreHW if required', 'TEMP')}
           ${numericTile(cpuPower, 'CPU Package', cpuPower?.deviceName, 'POWER')}
           ${numericTile(cpuVoltage, 'Core Voltage', cpuVoltage?.deviceName, 'VOLT')}
         </div>
@@ -1610,7 +1765,6 @@
       const cores = state.sensors
         .filter(s => s.category === 'cpu' && s.type === 'Load' && /CPU Core #/i.test(s.text))
         .sort((a, b) => a.text.localeCompare(b.text, undefined, { numeric: true }));
-      dom('coreGrid').style.gridTemplateColumns = 'repeat(8,1fr)';
       dom('coreGrid').innerHTML = cores.map((c, index) => {
         const load = Math.max(0, Math.min(100, c.number || 0));
         const coreNumber = c.text.match(/#(\d+)/)?.[1] || String(index + 1);
@@ -1687,8 +1841,16 @@
       const active = state.sensors
         .filter(sensor => {
           const haystack = `${sensor.text} ${sensor.displayName} ${sensor.pathText}`;
-          if (sensor.type === 'Fan') return parseNumber(sensor.value) !== null;
-          if (sensor.type === 'Control' && coolingPattern.test(haystack)) return sensor.number !== null;
+          if (sensor.type === 'Fan') {
+            const rpm = parseNumber(sensor.value);
+            const maxRpm = parseNumber(sensor.max);
+            return rpm !== null && !(rpm === 0 && maxRpm === 0);
+          }
+          if (sensor.type === 'Control' && coolingPattern.test(haystack)) {
+            const control = parseNumber(sensor.value);
+            const maxControl = parseNumber(sensor.max);
+            return control !== null && !(control === 0 && maxControl === 0);
+          }
           return false;
         });
       const deduped = new Map();
@@ -1887,13 +2049,13 @@
         const risk = scoreSensor(s);
         return `
           <tr>
-            <td><strong>${html(s.deviceName)}</strong><div class="path">${html(hardwareKind(s))}</div></td>
-            <td><strong>${html(s.displayName)}</strong><div class="path">${html(s.sensorId)}</div></td>
-            <td><span class="badge">${html(s.type)}</span></td>
-            <td class="numeric">${html(s.min || '--')}</td>
-            <td class="numeric">${html(s.value || '--')}</td>
-            <td class="numeric">${html(s.max || '--')}</td>
-            <td class="${risk.level === 'critical' ? 'bad-text' : risk.level === 'warn' ? 'warn-text' : 'ok'}">${html(risk.reason)}</td>
+            <td data-label="Device"><strong>${html(s.deviceName)}</strong><div class="path">${html(hardwareKind(s))}</div></td>
+            <td data-label="Sensor"><strong>${html(s.displayName)}</strong><div class="path">${html(s.sensorId)}</div></td>
+            <td data-label="Type"><span class="badge">${html(s.type)}</span></td>
+            <td data-label="Min" class="numeric">${html(s.min || '--')}</td>
+            <td data-label="Value" class="numeric">${html(s.value || '--')}</td>
+            <td data-label="Max" class="numeric">${html(s.max || '--')}</td>
+            <td data-label="Health" class="${risk.level === 'critical' ? 'bad-text' : risk.level === 'warn' ? 'warn-text' : 'ok'}">${html(risk.reason)}</td>
           </tr>
         `;
       }).join('');

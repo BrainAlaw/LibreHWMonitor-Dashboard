@@ -1,88 +1,114 @@
-# LibreHW Stats
+# PC Monitor
 
-Real-time hardware telemetry dashboard powered by [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor). Zero dependencies, single HTML file, dark theme, auto-discovery.
+Standalone Windows hardware monitoring dashboard powered by `LibreHardwareMonitorLib`, WebView2, and a native local .NET server.
 
-<img width="2417" height="1152" alt="image" src="https://github.com/user-attachments/assets/291b4b7a-cc1b-4dc1-b4e0-adb86db118cc" />
+## Current Architecture
 
+`LibreHWDashboard.exe` is the normal runtime entrypoint.
+
+```text
+LibreHWDashboard.exe
+  ├─ embedded LibreHardwareMonitorLib collector
+  ├─ native HTTP server on 127.0.0.1:8096
+  ├─ /data.json telemetry endpoint
+  └─ WebView2 dashboard window + tray menu
+```
+
+The app no longer requires:
+
+- `LibreHardwareMonitor.exe` to be started separately
+- Node.js
+- browser tabs for normal usage
+- LibreHardwareMonitor's built-in web server
+
+`server.js` remains in the repository only as a manual/developer fallback.
 
 ## Features
 
-- **CPU** – per-core load, temperature, package power, voltage
-- **GPU** – core/memory load, clocks, temperatures, VRAM usage
-- **Power estimation** – wall power, internal DC, per-component breakdown
-- **Cooling** – all active fans and pumps with live RPM/percentage
-- **Network** – aggregated download/upload with peak history chart
-- **Thermal overview** – all critical temperatures in one place
-- **Raw sensor matrix** – every sensor LibreHW exposes with health scoring
-- **Auto-discovery** – scans local network for LibreHardwareMonitor instances
-- **No build step** – vanilla JS, inline CSS, zero npm dependencies
+- CPU load, per-core load, package power, voltage and temperature
+- GPU load, clocks, power, VRAM, fans and thermals
+- RAM, storage, network, motherboard and controller sensors
+- Aggregated download/upload chart
+- Cooling/fan cards
+- Power estimation
+- Raw sensor matrix
+- Native tray app behavior
+- WebView2 windowed and fullscreen modes
 
 ## Quick Start
 
-1. **Download** the latest release ZIP
-2. **Run** `LibreHWDashboard.exe` (Windows) – it starts both LibreHardwareMonitor and the dashboard server automatically
-3. **Open** `http://127.0.0.1:8096` in your browser
+Run:
 
-Or start manually:
-
-```bash
-# Start LibreHardwareMonitor with remote web server on port 8085
-LibreHardwareMonitor.exe
-
-# Start the dashboard server
-node server.js
-
-# Open http://127.0.0.1:8096
+```powershell
+.\LibreHWDashboard.exe
 ```
 
-## How It Works
+The app starts its own local server and opens the dashboard in a native window.
+Windows will request Administrator approval because low-level CPU, motherboard, fan and SMU sensors require elevated hardware access.
 
+Default URL:
+
+```text
+http://127.0.0.1:8096/
 ```
-LibreHardwareMonitor  ──HTTP──►  server.js (Node.js proxy)  ──HTTP──►  Browser (SPA)
-    (:8085 /data.json)               (:8096)
+
+Default telemetry endpoint:
+
+```text
+http://127.0.0.1:8096/data.json
 ```
 
-- **LibreHardwareMonitor** reads sensor data (CPU, GPU, RAM, storage, fans, etc.) and exposes it as JSON via its built-in remote web server
-- **server.js** is a lightweight Node.js proxy that discovers LibreHW on the local network, fetches telemetry, and serves the dashboard
-- **index.html** is a single-page application that polls the proxy, normalises the data, and renders everything with vanilla JS
+## Tray Menu
 
-No database, no build tools, no configuration files.
+- `Open` - show the dashboard window
+- `Fullscreen` - toggle borderless fullscreen
+- `Reload` - reload WebView2
+- `Reset telemetry` - recreate the embedded sensor collector
+- `Exit` - close the app and local server
+
+Closing the dashboard window hides it to tray instead of exiting.
 
 ## Configuration
 
 | Environment variable | Default | Description |
-|---|---|---|
-| `PORT` | `8096` | Dashboard server port |
-| `LIBREHW_PORT` | `8085` | Telemetry port to scan |
-| `LIBREHW_SOURCE` | *(auto)* | Explicit telemetry URL (disables discovery) |
+|---|---:|---|
+| `PORT` | `8096` | Local dashboard HTTP server port |
+| `PCMONITOR_TELEMETRY_SOURCE` | unset | Optional external `/data.json` source instead of embedded telemetry |
+| `LIBREHW_SOURCE` | unset | Backward-compatible alias for `PCMONITOR_TELEMETRY_SOURCE` |
 
-The telemetry port and refresh interval can also be changed from the dashboard header and are saved to `localStorage`.
+When `PCMONITOR_TELEMETRY_SOURCE` or `LIBREHW_SOURCE` is set, `/data.json` proxies that external source. Otherwise, telemetry is collected directly inside `LibreHWDashboard.exe`.
 
-## Auto-Discovery
-
-When no `LIBREHW_SOURCE` is set, the server scans all private IPv4 subnets (`10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`) for a valid LibreHardwareMonitor `/data.json` endpoint. Found sources are cached for 5 minutes.
-
-## Manual Fan Hiding
-
-Hover over any fan card and click the `×` button to hide it. Hidden fans persist across page reloads (`localStorage`). Run `localStorage.removeItem('librehw-hiddenfans')` in the browser console to reset.
-
-## Building the Launcher
-
-The .NET launcher (`LibreHWDashboard.exe`) is a WinExe that starts the Node.js server and opens the browser. To rebuild:
-
-```bash
-cd launcher
-dotnet publish -c Release -o ../publish
-```
+## Build
 
 Requires .NET 10 SDK.
 
-## Requirements
+```powershell
+dotnet publish launcher\LibreHWDashboardLauncher.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o launcher\publish
+```
 
-- **Node.js** (for the dashboard server)
-- **LibreHardwareMonitor** v0.9.6+ (included in the release)
-- **Windows** (LibreHardwareMonitor is Windows-only; the dashboard itself works on any OS)
-- A browser (Chrome, Firefox, Edge, etc.)
+Runtime files required next to `LibreHWDashboard.exe`:
+
+- `index.html`
+- `WebView2Loader.dll`
+- `MonoPosixHelper.dll`
+- `libMonoPosixHelper.dll`
+- `runtimes\`
+
+## Manual Browser Fallback
+
+The old Node proxy can still be used for debugging external LibreHardwareMonitor web server payloads:
+
+```powershell
+node server.js
+```
+
+This is not required for normal standalone usage.
+
+## Notes
+
+- The app requests Administrator privileges so embedded telemetry can access CPU SMU, motherboard fan and low-level hardware sensors.
+- WebView2 Runtime must be installed on Windows. Current Microsoft Edge installations usually provide it.
+- The app binds only to `127.0.0.1` by default.
 
 ## License
 
