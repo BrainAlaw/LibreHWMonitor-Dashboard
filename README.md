@@ -88,7 +88,7 @@ Layout: `src/PCMonitor` (app), `ui` (dashboard source), `tests/PCMonitor.Tests`,
 - `tools\smoke-test.ps1 -ExePath publish\PCMonitor.exe` starts the app and checks health, snapshot, embedded UI, no spawned LibreHardwareMonitor/Node, Host-header rejection (`-AllowNonElevated` for non-admin shells).
 - `tools\compare-telemetry.ps1 -Reference http://127.0.0.1:8085/data.json -Candidate http://127.0.0.1:8096/api/snapshot` diffs sensor coverage against the official LibreHardwareMonitor web server.
 
-Installer: `iscc /DAppVersion=2.0.1 installer\PCMonitor.iss`. Release: push a `v*` tag; GitHub Actions runs the tests, builds the installer, portable ZIP and `SHA256SUMS.txt`.
+Installer: `iscc /DAppVersion=2.0.2 installer\PCMonitor.iss`. Release: push a `v*` tag; GitHub Actions runs the tests, builds the installer, portable ZIP and `SHA256SUMS.txt`.
 
 ## Known limitations
 
