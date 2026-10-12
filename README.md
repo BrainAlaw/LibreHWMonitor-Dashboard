@@ -80,8 +80,6 @@ Release: push a `v*` tag; GitHub Actions builds the installer, portable ZIP and 
 - Uses the pre-release `LibreHardwareMonitorLib 0.9.7-pre705`: SATA drives are identified as `/ahci/N` instead of `/ssd/N`, and a few NVMe-specific `Level` sensors present in 0.9.6 are not reported.
 - First launch after install can take up to ~35 s to open all hardware (one-time native extraction and driver init); later launches take a few seconds.
 
-`legacy/` holds the old Node proxy and NSSM service installer; they are not part of the product.
-
 ## License
 
 MIT. See `THIRD_PARTY_NOTICES.md` for bundled components.
