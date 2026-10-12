@@ -7,7 +7,7 @@
 AppId={{6F0B7C0E-5B8A-4F57-9C0D-2B7E6A1D4C11}
 AppName=PC Monitor
 AppVersion={#AppVersion}
-AppPublisher=PC Monitor
+AppPublisher=BrainAlaw
 DefaultDirName={autopf}\PCMonitor
 DefaultGroupName=PC Monitor
 OutputDir=..\release
