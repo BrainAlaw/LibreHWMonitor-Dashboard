@@ -978,21 +978,26 @@ details.settings-section[open] > summary::after { transform: rotate(180deg); }
 :root[data-shell="app"] .topbar { padding-right: 0; user-select: none; }
 :root[data-shell="app"] .topbar-right { align-self: stretch; }
 :root[data-shell="app"] .topbar-right > .icon-button { align-self: center; }
-:root[data-shell="app"] .window-controls { display: flex; margin-left: 6px; }
+:root[data-shell="app"] .window-controls { display: flex; align-self: stretch; margin-left: 6px; }
 
 .window-controls button {
   width: 46px;
+  height: 100%;
   display: grid;
   place-items: center;
   border: 0;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
   transition: background .15s, color .15s;
 }
 
-.window-controls button:hover { background: var(--panel-2); color: var(--text); }
+.window-controls button:hover { background: rgba(255, 255, 255, .08); color: var(--text); }
+.window-controls button:active { background: rgba(255, 255, 255, .05); }
 .window-controls button.close:hover { background: #c42b1c; color: #fff; }
+.window-controls button.close:active { background: #a52417; color: #fff; }
+.window-controls button:focus-visible { outline: 1px solid var(--muted); outline-offset: -2px; }
 
 .window-controls svg {
   width: 12px;
