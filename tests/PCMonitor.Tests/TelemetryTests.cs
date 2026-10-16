@@ -12,7 +12,7 @@ public sealed class SnapshotBuilderTests
         new(name, type, sensors ?? [], children ?? []);
 
     [Fact]
-    public void SkipsSensorsWithoutFiniteValues()
+    public void KeepsUnavailableSensorsAndNormalizesNonFiniteValuesToNull()
     {
         RawHardware cpu = Hardware("CPU", "Cpu",
         [
@@ -24,8 +24,9 @@ public sealed class SnapshotBuilderTests
 
         TelemetrySnapshot snapshot = SnapshotBuilder.Build(DateTimeOffset.UnixEpoch, [cpu]);
 
-        SensorReading only = Assert.Single(snapshot.Sensors);
-        Assert.Equal("CPU Total", only.Name);
+        Assert.Equal(4, snapshot.Sensors.Count);
+        Assert.Equal(12.34, snapshot.Sensors[0].Value);
+        Assert.All(snapshot.Sensors.Skip(1), s => Assert.Null(s.Value));
     }
 
     [Fact]

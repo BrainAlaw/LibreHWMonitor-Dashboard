@@ -27,7 +27,7 @@ try {
     $base = "http://127.0.0.1:$Port"
     $env:PORT = "$Port"
     if ($AllowNonElevated) { $env:__COMPAT_LAYER = 'RunAsInvoker' }
-    $process = Start-Process -FilePath $ExePath -ArgumentList '--minimized' -PassThru
+    $process = Start-Process -FilePath $ExePath -ArgumentList '--minimized' -WindowStyle Hidden -PassThru
 
     $health = $null
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -45,6 +45,10 @@ try {
 
     $snapshot = Invoke-RestMethod "$base/api/snapshot"
     Assert-That (@($snapshot.sensors).Count -gt 0) '/api/snapshot returns sensors'
+    Assert-That ($null -ne $health.availableSensorCount) 'health distinguishes readable sensors'
+    $diagnostics = Invoke-WebRequest "$base/api/diagnostics"
+    Assert-That ($diagnostics.Headers['Content-Disposition'] -match 'attachment') 'diagnostics offered as a download'
+    Assert-That ($diagnostics.Content -notmatch '"accessToken"') 'diagnostics exclude settings tokens'
     Assert-That (@($snapshot.sensors | Where-Object { $_.type -eq 'Throughput' -and $_.unit -ne 'B/s' }).Count -eq 0) 'throughput sensors are reported in B/s'
     $page = Invoke-WebRequest "$base/" -UseBasicParsing
     Assert-That ($page.Content -match '<title>PC Monitor</title>') 'embedded index.html served'

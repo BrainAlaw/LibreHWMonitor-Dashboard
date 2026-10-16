@@ -78,8 +78,8 @@ export function numericTile(sensor: Sensor | undefined, label: string, sub: stri
 /** A thermal tile, or an explanatory placeholder when the CPU temperature is not readable. */
 export function cpuThermalTile(sensor: Sensor | undefined): Safe {
   return sensor
-    ? thermalTile(sensor, 'CPU Tctl/Tdie', sensor.deviceName)
-    : unavailableTile('CPU Tctl/Tdie', 'Run as Administrator to read CPU temperature', 'TEMP');
+    ? thermalTile(sensor, sensor.text, sensor.deviceName)
+    : unavailableTile('CPU temperature', 'Check System status for driver access and hardware support', 'TEMP');
 }
 
 const BLADE = 'M24 23C22 15 26 8 34 8C33 15 30 21 25 24Z';

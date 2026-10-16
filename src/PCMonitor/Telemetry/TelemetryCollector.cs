@@ -105,7 +105,8 @@ internal sealed class TelemetryCollector : IDisposable
                     if (resetRequested)
                     {
                         resetRequested = false;
-                        DisposeSource(ref source);
+                        await CloseSourceAsync(source, token);
+                        source = null;
                         Log.Info("Collector reset requested");
                     }
 
@@ -115,7 +116,8 @@ internal sealed class TelemetryCollector : IDisposable
                 catch (Exception error) when (error is not OperationCanceledException)
                 {
                     Log.Error("Telemetry sampling failed", error);
-                    DisposeSource(ref source);
+                    await CloseSourceAsync(source, token);
+                    source = null;
                     SetHealth(new TelemetryHealth("error", elevated, 0, 0, error.Message, Health.LastUpdate));
                     delay = retryDelay;
                 }
@@ -140,16 +142,17 @@ internal sealed class TelemetryCollector : IDisposable
         TelemetrySnapshot snapshot = SnapshotBuilder.Build(now, devices, CurrentVolumes());
         int sensorCount = snapshot.Sensors.Count;
 
-        string? problem = sensorCount == 0
-            ? "No sensors reported (driver blocked or hardware unsupported)"
-            : !elevated ? "Not running as Administrator: CPU, fan and motherboard sensors are limited" : null;
+        DriverStatus? driver = source.Driver;
+        IReadOnlyList<string> problems = TelemetryDiagnostics.Problems(snapshot, settings.Current, elevated, driver, source.Problems);
+        string? problem = problems.Count > 0 ? string.Join("; ", problems) : null;
 
         lock (feedLock)
         {
             long next = Interlocked.Increment(ref version);
             Volatile.Write(ref latest, new PublishedSnapshot(next, snapshot, JsonSerializer.Serialize(snapshot, SnapshotJson)));
             Volatile.Write(ref health, new TelemetryHealth(
-                problem is null ? "ok" : "degraded", elevated, source.HardwareCount, sensorCount, problem, now));
+                problem is null ? "ok" : "degraded", elevated, source.HardwareCount, sensorCount, problem, now,
+                problems, driver, snapshot.Sensors.Count(s => s.Value.HasValue)));
             Signal();
         }
     }
@@ -205,5 +208,13 @@ internal sealed class TelemetryCollector : IDisposable
     {
         source?.Dispose();
         source = null;
+    }
+
+    private static async Task CloseSourceAsync(IHardwareSource? source, CancellationToken token)
+    {
+        if (source is null) return;
+        source.Dispose();
+        // Reopening the library before old updates release driver handles can corrupt the new session.
+        await source.WhenClosed.WaitAsync(token);
     }
 }

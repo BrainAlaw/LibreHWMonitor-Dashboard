@@ -4,7 +4,7 @@ import { fanKey, visibleCoolingSensors } from '../fans';
 import { h } from '../html';
 import type { Model } from '../model';
 import { prefs, type PowerAssumptions } from '../prefs';
-import { hardwareKind } from '../scoring';
+import { bestCpuLoad, hardwareKind, measuredCpuPackagePower } from '../scoring';
 import { deviceRoot, groupBy } from './util';
 
 const NVME_WATTS = 5;
@@ -26,9 +26,9 @@ export interface PowerEstimate {
  * and from the user's assumptions for board, RAM, fans, drives and peripherals.
  */
 export function estimatePower(model: Model, assumptions: PowerAssumptions): PowerEstimate {
-  const cpuMeasured = model.byText('Package', 'cpu', 'Power')?.number ?? 0;
+  const cpuMeasured = measuredCpuPackagePower(model)?.number ?? 0;
   const gpuMeasured = model.byText('GPU Package', 'gpu', 'Power')?.number ?? 0;
-  const cpuLoad = model.byText('CPU Total', 'cpu', 'Load')?.number ?? 0;
+  const cpuLoad = bestCpuLoad(model)?.number ?? 0;
   const gpuLoad = (model.byText('GPU Board Power', 'gpu', 'Load') ?? model.byText('GPU Power', 'gpu', 'Load'))?.number ?? 0;
 
   const kinds = groupBy(model.sensors.filter(s => s.category === 'storage'), deviceRoot)

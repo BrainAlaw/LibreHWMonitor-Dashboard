@@ -46,6 +46,9 @@ export interface Health {
   lastUpdate: string | null;
   port: number;
   version: string | null;
+  problems?: string[];
+  driver?: { installed: boolean; version: string | null; error: string | null } | null;
+  availableSensorCount?: number;
 }
 
 export interface SettingsView {

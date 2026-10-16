@@ -3,7 +3,7 @@ import { el, setHtml, setText } from '../dom';
 import { clamp } from '../format';
 import { h } from '../html';
 import type { Model } from '../model';
-import { bestCpuPackagePower, bestCpuTemperature, colorForPercent } from '../scoring';
+import { bestCpuLoad, bestCpuPackagePower, bestCpuTemperature, colorForPercent } from '../scoring';
 
 /**
  * Column count for the core grid: close to square, preferring a count that divides the cores evenly so the
@@ -21,7 +21,7 @@ export function coreColumns(count: number): number {
 export function renderCpu(model: Model): void {
   setText('cpuName', model.cpuName());
 
-  const load = model.byText('CPU Total', 'cpu', 'Load');
+  const load = bestCpuLoad(model);
   const power = bestCpuPackagePower(model);
   const voltage = model.byContains(['Core', 'SVI2'], 'cpu', 'Voltage');
 
@@ -33,7 +33,7 @@ export function renderCpu(model: Model): void {
   </div>`);
 
   const cores = model.sensors
-    .filter(s => s.category === 'cpu' && s.type === 'Load' && /CPU Core #/i.test(s.text))
+    .filter(s => s.category === 'cpu' && s.type === 'Load' && /^(?:CPU )?Core #/i.test(s.text))
     .sort((a, b) => a.text.localeCompare(b.text, undefined, { numeric: true }));
 
   el('coreGrid').style.setProperty('--cols', String(coreColumns(cores.length)));

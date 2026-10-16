@@ -34,6 +34,18 @@ function render(current: Model): void {
   if (showRaw) renderRaw(current);
 }
 
+let stale = false;
+
+function syncVisibility(): void {
+  document.documentElement.toggleAttribute('data-paused', document.hidden);
+  if (!document.hidden && stale && model) {
+    stale = false;
+    render(model);
+    settings.refreshFans();
+    issues.refresh();
+  }
+}
+
 const settings = initSettings(() => model);
 const issues = initIssues(() => model);
 initWindowChrome();
@@ -46,6 +58,14 @@ function onSnapshot(snapshot: Snapshot): void {
   lastSignature = signature;
 
   model = new Model(snapshot);
+  if (document.hidden) {
+    // Keep history current, but skip all DOM work until the window is visible again.
+    recordLoadHistory(model, history);
+    recordNetworkHistory(model, history);
+    stale = true;
+    return;
+  }
+
   recordLoadHistory(model, history);
   recordNetworkHistory(model, history);
   render(model);
@@ -56,5 +76,8 @@ function onSnapshot(snapshot: Snapshot): void {
 onPrefsChange(() => {
   if (model) render(model);
 });
+
+document.addEventListener('visibilitychange', syncVisibility);
+syncVisibility();
 
 connectStream({ onSnapshot, onHealth: showHealth, onDisconnect: showDisconnected });

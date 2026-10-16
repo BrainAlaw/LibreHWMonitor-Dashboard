@@ -76,8 +76,7 @@ button, input, select { font: inherit; }
   justify-content: space-between;
   gap: 12px;
   padding: 8px 16px;
-  background: rgba(14, 16, 20, .82);
-  backdrop-filter: blur(14px);
+  background: rgb(14, 16, 20);
   border-bottom: 1px solid var(--line);
 }
 
@@ -289,7 +288,7 @@ button, input, select { font: inherit; }
   background: conic-gradient(from -90deg, var(--dial-color) var(--dial), #10141b 0);
   border: 1px solid var(--line-soft);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .03), 0 0 0 1px rgba(0, 0, 0, .22);
-  transition: --dial .7s var(--ease), background-color .3s;
+  transition: background-color .3s;
 }
 
 .dial::before {
@@ -455,7 +454,7 @@ button, input, select { font: inherit; }
   background: var(--panel-2);
   border: 1px solid color-mix(in srgb, var(--core-color) 42%, var(--line-soft));
   border-radius: 10px;
-  transition: border-color .4s, --core-load .6s var(--ease);
+  transition: border-color .4s;
 }
 
 .core-fill {
@@ -553,7 +552,6 @@ button, input, select { font: inherit; }
   width: 46px;
   height: 46px;
   color: var(--fan-color, var(--cyan));
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--fan-color) 35%, transparent));
 }
 
 .fan-rotor-box svg { width: 100%; height: 100%; display: block; }
@@ -564,6 +562,12 @@ button, input, select { font: inherit; }
 .fan-rotor {
   transform-origin: 24px 24px;
   animation: spin var(--spin, 3s) linear infinite;
+  will-change: transform;
+}
+
+/* Set by main.ts while the window is hidden, minimised or unfocused-and-occluded: no animation frames at all. */
+html[data-paused] *, html[data-paused] *::before, html[data-paused] *::after {
+  animation-play-state: paused !important;
 }
 
 .fan-rotor.is-idle { animation: none; }
@@ -619,7 +623,7 @@ button, input, select { font: inherit; }
   width: var(--w, 0%);
   background: var(--bar-color, var(--green));
   border-radius: inherit;
-  transition: width .7s var(--ease), background-color .3s;
+  transition: background-color .3s;
 }
 
 .drive-stats {

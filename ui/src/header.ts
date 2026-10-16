@@ -27,7 +27,8 @@ export function connectionIssue(): ConnectionIssue | null {
   if (health.status === 'error') return { title: 'Telemetry error', detail: health.lastError ?? 'sensor collection failed', level: 'critical' };
   return {
     title: 'Limited telemetry',
-    detail: health.elevated ? 'some sensors are unavailable' : 'not running as administrator - some sensors are missing',
+    detail: health.problems?.length ? health.problems.join('; ') :
+      health.lastError ?? (health.elevated ? 'some sensors are unavailable' : 'not running as administrator - some sensors are missing'),
     level: 'warn'
   };
 }

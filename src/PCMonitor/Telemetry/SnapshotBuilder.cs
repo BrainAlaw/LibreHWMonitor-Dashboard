@@ -29,7 +29,6 @@ internal static class SnapshotBuilder
         hardware.Add(new HardwareInfo(node.Name, node.Type));
 
         foreach (RawSensor sensor in node.Sensors
-            .Where(static s => SensorMetadata.IsFinite(s.Value))
             .OrderBy(static s => s.Type, StringComparer.Ordinal)
             .ThenBy(static s => s.Index))
         {

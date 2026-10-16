@@ -13,6 +13,7 @@ internal sealed class FakeSource(Func<IReadOnlyList<RawHardware>> poll) : IHardw
 {
     public int HardwareCount => 1;
     public bool Disposed { get; private set; }
+    public Task WhenClosed { get; init; } = Task.CompletedTask;
     public IReadOnlyList<RawHardware> Poll() => poll();
     public void Dispose() => Disposed = true;
 }
@@ -29,10 +30,16 @@ public sealed class TelemetryCollectorTests : IDisposable
         }
     }
 
-    private SettingsStore Settings() => new(Path.Combine(directory, "settings.json"), portOverride: "");
+    private SettingsStore Settings()
+    {
+        SettingsStore settings = new(Path.Combine(directory, "settings.json"), portOverride: "");
+        settings.Current.EnableMotherboard = false;
+        return settings;
+    }
 
     private static RawHardware Cpu(float load) =>
-        new("CPU", "Cpu", [new RawSensor("/amdcpu/0/load/0", "CPU Total", "Load", 0, load, null, null)], []);
+        new("CPU", "Cpu", [new RawSensor("/amdcpu/0/load/0", "CPU Total", "Load", 0, load, null, null),
+            new RawSensor("/amdcpu/0/temperature/0", "Core (Tctl/Tdie)", "Temperature", 0, 50, null, null)], []);
 
     [Fact]
     public async Task PublishesSnapshotsAndHealth()
@@ -43,9 +50,10 @@ public sealed class TelemetryCollectorTests : IDisposable
         await collector.WaitForChangeAsync(0, TimeSpan.FromSeconds(5), CancellationToken.None);
 
         Assert.NotNull(collector.Latest);
-        Assert.Equal(42, collector.Latest!.Snapshot.Sensors.Single().Value);
+        Assert.Equal(42, collector.Latest!.Snapshot.Sensors.First(s => s.Type == "Load").Value);
         Assert.Equal("ok", collector.Health.Status);
-        Assert.Equal(1, collector.Health.SensorCount);
+        Assert.Equal(2, collector.Health.SensorCount);
+        Assert.Equal(2, collector.Health.AvailableSensorCount);
     }
 
     [Fact]
@@ -98,6 +106,29 @@ public sealed class TelemetryCollectorTests : IDisposable
 
         Assert.Equal(2, created.Count);
         Assert.True(created[0].Disposed);
+    }
+
+    [Fact]
+    public async Task ResetWaitsForOldHardwareToCloseBeforeOpeningNewHardware()
+    {
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int created = 0;
+        FakeSource first = new(() => [Cpu(1)]) { WhenClosed = closed.Task };
+        using TelemetryCollector collector = new(Settings(), _ =>
+            Interlocked.Increment(ref created) == 1 ? first : new FakeSource(() => [Cpu(2)]), true);
+        collector.Start();
+        await collector.WaitForChangeAsync(0, TimeSpan.FromSeconds(5), CancellationToken.None);
+        long beforeReset = collector.Latest!.Version;
+        collector.Reset();
+        try
+        {
+            Assert.True(SpinWait.SpinUntil(() => first.Disposed, TimeSpan.FromSeconds(5)));
+            Assert.Equal(1, Volatile.Read(ref created));
+            closed.SetResult();
+            await collector.WaitForChangeAsync(beforeReset, TimeSpan.FromSeconds(5), CancellationToken.None);
+            Assert.Equal(2, Volatile.Read(ref created));
+        }
+        finally { closed.TrySetResult(); }
     }
 }
 
@@ -161,8 +192,24 @@ public sealed class DashboardHostTests : IAsyncLifetime
     {
         using JsonDocument json = JsonDocument.Parse(await client.GetStringAsync("/api/health"));
 
-        Assert.Equal("ok", json.RootElement.GetProperty("status").GetString());
+        Assert.Equal("degraded", json.RootElement.GetProperty("status").GetString());
+        Assert.Contains("CPU temperature unavailable", json.RootElement.GetProperty("lastError").GetString());
         Assert.Equal(host.Port, json.RootElement.GetProperty("port").GetInt32());
+    }
+
+    [Fact]
+    public async Task DownloadsLocalDiagnosticsWithoutSettingsSecrets()
+    {
+        using HttpResponseMessage response = await client.GetAsync("/api/diagnostics");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        string body = await response.Content.ReadAsStringAsync();
+        using JsonDocument report = JsonDocument.Parse(body);
+        Assert.True(report.RootElement.TryGetProperty("hardwareLibraryVersion", out _));
+        Assert.NotEmpty(report.RootElement.GetProperty("health").GetProperty("problems").EnumerateArray());
+        Assert.DoesNotContain("accessToken", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lanUrls", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

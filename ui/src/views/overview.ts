@@ -4,12 +4,12 @@ import { setHtml } from '../dom';
 import { h } from '../html';
 import type { History } from '../history';
 import type { Model } from '../model';
-import { bestCpuTemperature, chooseStorageTemperature, isLiveTemperature } from '../scoring';
+import { bestCpuLoad, bestCpuTemperature, chooseStorageTemperature, isLiveTemperature } from '../scoring';
 import type { Sensor } from '../types';
 import { deviceRoot, groupBy } from './util';
 
 export function recordLoadHistory(model: Model, history: History): void {
-  history.push('cpu', model.byText('CPU Total', 'cpu', 'Load')?.number ?? 0);
+  history.push('cpu', bestCpuLoad(model)?.number ?? 0);
   history.push('gpu', model.byText('GPU Core', 'gpu', 'Load')?.number ?? 0);
   history.push('ram', model.byText('Memory', 'memory', 'Load')?.number ?? 0);
 }
@@ -54,7 +54,7 @@ function renderLoads(model: Model): void {
   const gpuPackagePower = byGpu('GPU Package', 'Power');
 
   setHtml('loadSummary', h`<div class="signal-grid">
-    ${signal(model.byText('CPU Total', 'cpu', 'Load'), 'CPU Total', 'processor load')}
+    ${signal(bestCpuLoad(model), 'CPU Total', 'processor load')}
     ${signal(byGpu('GPU Core'), 'GPU Core', 'graphics load')}
     ${signal(byGpu('GPU Memory'), 'GPU Memory', 'vram load')}
     ${signal(byGpu('GPU Memory Controller'), 'GPU Memory Ctrl', 'controller load')}

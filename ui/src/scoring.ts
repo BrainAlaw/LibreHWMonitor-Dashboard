@@ -22,6 +22,7 @@ export function isPercentLike(sensor: Sensor): boolean {
 
 export function isInvalidCpuTelemetry(sensor: Sensor | undefined): boolean {
   if (!sensor || sensor.category !== 'cpu') return false;
+  if (sensor.number === null) return true;
   if (sensor.type === 'Temperature' && sensor.number === 0) return true;
   if (sensor.type === 'Power' && sensor.number === 0) return true;
   if ((sensor.type === 'Clock' || sensor.type === 'Factor') && sensor.number === null) return true;
@@ -55,12 +56,23 @@ export function bestCpuTemperature(model: Model): Sensor | undefined {
     .sort((a, b) => cpuTemperatureRank(a) - cpuTemperatureRank(b) || (b.number ?? 0) - (a.number ?? 0))[0];
 }
 
+/** Package aliases used by Intel and AMD; core/SoC power is not a package total. */
+export function measuredCpuPackagePower(model: Model): Sensor | undefined {
+  return model.sensors.find(s => s.category === 'cpu' && s.type === 'Power' &&
+    /^(?:CPU\s+)?Package(?:\s+Power)?$/i.test(s.text) && (s.number ?? 0) > 0);
+}
+
+export function bestCpuLoad(model: Model): Sensor | undefined {
+  return model.sensors.find(s => s.category === 'cpu' && s.type === 'Load' &&
+    /^(?:CPU\s+)?(?:Total|Total Load)$/i.test(s.text) && s.number !== null);
+}
+
 /** Measured package power, or an estimate derived from CPU load when the sensor reads zero. */
 export function bestCpuPackagePower(model: Model): Sensor | undefined {
-  const measured = model.byText('Package', 'cpu', 'Power');
-  if (measured && (measured.number ?? 0) > 0) return measured;
+  const measured = measuredCpuPackagePower(model);
+  if (measured) return measured;
 
-  const cpuLoad = model.byText('CPU Total', 'cpu', 'Load');
+  const cpuLoad = bestCpuLoad(model);
   if (!cpuLoad || cpuLoad.number === null) return measured;
 
   const estimate = 35 + (clamp(cpuLoad.number, 0, 100) / 100) * 80;
@@ -76,10 +88,20 @@ export function bestCpuPackagePower(model: Model): Sensor | undefined {
 
 const NORMAL: Risk = { score: 100, level: 'ok', reason: 'Normal' };
 
+/** Generic Super I/O channels have no confirmed mapping to a physical component. */
+export function isUnidentifiedMotherboardTemperature(sensor: Sensor): boolean {
+  return sensor.type === 'Temperature' &&
+    sensor.id.toLowerCase().startsWith('/lpc/') &&
+    /^Temperature\s*#\s*\d+$/i.test(sensor.text.trim());
+}
+
 export function scoreSensor(sensor: Sensor): Risk {
   const n = sensor.number;
+  if (isUnidentifiedMotherboardTemperature(sensor)) {
+    return { score: 100, level: 'ok', reason: 'Unidentified sensor; alerts disabled' };
+  }
   if (isInvalidCpuTelemetry(sensor)) return { score: 65, level: 'warn', reason: 'CPU telemetry unavailable' };
-  if (n === null) return { score: 100, level: 'ok', reason: 'Not numeric' };
+  if (n === null) return { score: 100, level: 'ok', reason: 'Reading unavailable' };
   if (/threshold/i.test(sensor.text) || isStorageTemperatureThreshold(sensor)) {
     return { score: 100, level: 'ok', reason: 'Reference threshold' };
   }
@@ -159,7 +181,7 @@ export function systemLevel(model: Model): Level {
 function watchedSensors(model: Model): Sensor[] {
   return model.sensors.filter(s =>
     isLiveTemperature(s) ||
-    (s.category === 'cpu' && s.type === 'Power' && s.text === 'Package') ||
+    (s.category === 'cpu' && s.type === 'Power' && /^(?:CPU\s+)?Package(?:\s+Power)?$/i.test(s.text)) ||
     (s.category === 'cpu' && s.type === 'Clock' && s.text === 'Core #1') ||
     (s.type === 'Load' && (/used space/i.test(s.text) || (s.number ?? 0) >= 90)) ||
     (s.type === 'Level' && /remaining life|available spare|percentage used/i.test(s.text)));
@@ -175,7 +197,7 @@ export function chooseStorageTemperature(sensors: Sensor[]): Sensor | undefined 
     if (text.includes('critical')) return 4;
     return 5;
   };
-  return sensors.filter(isLiveTemperature).sort((a, b) => rank(a) - rank(b))[0];
+  return sensors.filter(s => isLiveTemperature(s) && s.number !== null).sort((a, b) => rank(a) - rank(b))[0];
 }
 
 export function hardwareKind(sensor: Sensor): string {

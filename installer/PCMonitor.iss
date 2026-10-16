@@ -34,6 +34,7 @@ Name: "{group}\PC Monitor"; Filename: "{app}\PCMonitor.exe"
 Name: "{autodesktop}\PC Monitor"; Filename: "{app}\PCMonitor.exe"; Tasks: desktopicon
 
 [Run]
+Filename: "https://pawnio.eu"; Description: "Download PawnIO for CPU and motherboard sensors"; Flags: shellexec postinstall skipifsilent unchecked; Check: PawnIOMissing
 Filename: "schtasks.exe"; Parameters: "/Create /TN PCMonitor /SC ONLOGON /RL HIGHEST /TR ""\""{app}\PCMonitor.exe\"" --minimized"" /F"; Flags: runhidden; Tasks: autostart
 Filename: "{app}\PCMonitor.exe"; Description: "Launch PC Monitor"; Flags: nowait postinstall skipifsilent shellexec
 
@@ -42,6 +43,13 @@ Filename: "schtasks.exe"; Parameters: "/Delete /TN PCMonitor /F"; Flags: runhidd
 Filename: "taskkill.exe"; Parameters: "/F /IM PCMonitor.exe"; Flags: runhidden; RunOnceId: "KillApp"
 
 [Code]
+function PawnIOMissing: Boolean;
+var
+  Version: String;
+begin
+  Result := not RegQueryStringValue(HKLM64, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO', 'DisplayVersion', Version);
+end;
+
 // The WebView2 Evergreen runtime ships with Windows 11 and current Edge; warn when it is missing.
 function WebView2Installed: Boolean;
 var
@@ -55,6 +63,8 @@ end;
 function InitializeSetup: Boolean;
 begin
   Result := True;
+  if PawnIOMissing and not WizardSilent then
+    MsgBox('PawnIO was not detected. CPU temperatures and motherboard sensors may be unavailable until you install it from https://pawnio.eu and restart PC Monitor. The dashboard can still run with limited telemetry.', mbInformation, MB_OK);
   if not WebView2Installed then
     MsgBox('The Microsoft WebView2 Runtime was not detected. PC Monitor will fall back to your default browser until it is installed (https://developer.microsoft.com/microsoft-edge/webview2/).', mbInformation, MB_OK);
 end;

@@ -41,7 +41,12 @@ internal sealed record TelemetryHealth(
     int HardwareCount,
     int SensorCount,
     string? LastError,
-    DateTimeOffset? LastUpdate);
+    DateTimeOffset? LastUpdate,
+    IReadOnlyList<string>? Problems = null,
+    DriverStatus? Driver = null,
+    int AvailableSensorCount = 0);
+
+internal sealed record DriverStatus(bool Installed, string? Version, string? Error = null);
 
 /// <summary>An immutable published snapshot together with its pre-serialized JSON.</summary>
 internal sealed record PublishedSnapshot(long Version, TelemetrySnapshot Snapshot, string Json);
@@ -49,6 +54,9 @@ internal sealed record PublishedSnapshot(long Version, TelemetrySnapshot Snapsho
 internal interface IHardwareSource : IDisposable
 {
     int HardwareCount { get; }
+    DriverStatus? Driver => null;
+    IReadOnlyList<string> Problems => [];
+    Task WhenClosed => Task.CompletedTask;
 
     /// <summary>Refreshes all sensors and returns the current device tree.</summary>
     IReadOnlyList<RawHardware> Poll();

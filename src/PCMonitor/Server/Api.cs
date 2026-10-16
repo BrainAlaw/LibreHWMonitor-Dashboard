@@ -35,6 +35,27 @@ internal static class Api
 
         routes.MapGet("/api/health", () => Results.Json(BuildHealth(collector, port), Json));
 
+        routes.MapGet("/api/diagnostics", (HttpContext context) =>
+        {
+            if (!IsLoopbackClient(context))
+                return Results.Json(new { error = "Diagnostics are only available on this computer" }, Json, statusCode: StatusCodes.Status403Forbidden);
+
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.Headers.ContentDisposition = "attachment; filename=PCMonitor-diagnostics.json";
+            TelemetrySnapshot? snapshot = collector.Latest?.Snapshot;
+            return Results.Json(new
+            {
+                generatedAt = DateTimeOffset.UtcNow,
+                operatingSystem = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
+                hardwareLibraryVersion = LhmHardwareSource.LibraryVersion,
+                health = BuildHealth(collector, port),
+                enabled = new { cpu = settings.Current.EnableCpu, motherboard = settings.Current.EnableMotherboard, gpu = settings.Current.EnableGpu },
+                hardware = snapshot?.Hardware.Where(h => h.Type != "Network"),
+                sensors = snapshot?.Sensors.Where(s => !s.Id.StartsWith("/nic/", StringComparison.OrdinalIgnoreCase))
+            }, Json);
+        });
+
         routes.MapGet("/api/stream", (HttpContext context) => StreamAsync(context, collector, port));
 
         routes.MapGet("/api/settings", (HttpContext context) =>
@@ -186,6 +207,9 @@ internal static class Api
             sensorCount = health.SensorCount,
             lastError = health.LastError,
             lastUpdate = health.LastUpdate,
+            problems = health.Problems ?? [],
+            driver = health.Driver,
+            availableSensorCount = health.AvailableSensorCount,
             port,
             version = typeof(Api).Assembly.GetName().Version?.ToString(3)
         };
