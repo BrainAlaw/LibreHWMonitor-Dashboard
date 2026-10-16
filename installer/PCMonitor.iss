@@ -1,6 +1,6 @@
 ; Inno Setup script. Build: iscc /DAppVersion=2.0.2 installer\PCMonitor.iss  (expects publish\PCMonitor.exe)
 #ifndef AppVersion
-  #define AppVersion "2.0.3"
+  #define AppVersion "2.0.4"
 #endif
 
 [Setup]
